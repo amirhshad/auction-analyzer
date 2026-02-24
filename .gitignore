@@ -1,0 +1,27 @@
+# Secrets
+.env
+credentials.json
+token.json
+
+# Intermediate / temp files
+.tmp/
+data/
+
+# Playwright MCP state
+.playwright-mcp/
+
+# Screenshots (reference only)
+*.png
+*.jpeg
+*.jpg
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
