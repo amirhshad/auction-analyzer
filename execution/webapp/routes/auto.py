@@ -246,7 +246,7 @@ def auto_lookup_market(
         return _render(request, "partials/_progress.html", {"task_id": "none"})
 
     def _do_lookup():
-        from execution.scrape_gaspedaal import run as scrape_market
+        from execution.scrape_autoscout24 import run as scrape_market
         from execution.webapp.task_manager import TaskCancelled
         state = tm.get_state(task_id)
         total_found = 0
@@ -255,7 +255,7 @@ def auto_lookup_market(
                 raise TaskCancelled("Stopped by user")
             if state:
                 state.progress = min(int((idx / max(len(lookups), 1)) * 90) + 10, 99)
-                state.message = f"Looking up {make} {model} ({idx + 1}/{len(lookups)})"
+                state.message = f"AutoScout24: {make} {model} ({idx + 1}/{len(lookups)})"
             try:
                 found = scrape_market(make=make, model=model, year=year, mileage_km=mileage_km)
                 total_found += len(found)
