@@ -2,7 +2,7 @@
 {% if rows %}
 <div class="space-y-6">
     <!-- Charts row -->
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         <div class="bg-white rounded-lg border border-gray-200 p-4">
             <div id="chart-score-dist" style="height: 320px;"></div>
         </div>
@@ -24,7 +24,7 @@
         {% endif %}
     {% endfor %}
     {% if ratings %}
-    <div class="grid grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         {% for label in ['Excellent', 'Good', 'Fair', 'Poor'] %}
         {% set color = {'Excellent': 'green', 'Good': 'blue', 'Fair': 'amber', 'Poor': 'red'}[label] %}
         <div class="bg-white rounded-lg border border-gray-200 p-4">

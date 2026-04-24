@@ -16,37 +16,37 @@
         </button>
         <div x-show="showAdd" x-cloak x-transition class="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
             <!-- Scrape by URL -->
-            <form hx-post="/auto/scrape" hx-target="#action-result" hx-swap="innerHTML" class="flex items-end gap-3">
+            <form hx-post="/auto/scrape" hx-target="#action-result" hx-swap="innerHTML" class="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
                 <div class="flex-1">
                     <label class="block text-xs font-medium text-gray-500 mb-1">Auction URL</label>
                     <input type="text" name="url" required
                            placeholder="https://www.troostwijkauctions.com/a/... or https://www.onlineveilingmeester.nl/..."
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
-                <div class="w-28">
+                <div class="w-full sm:w-28">
                     <label class="block text-xs font-medium text-gray-500 mb-1">Max Vehicles</label>
                     <input type="number" name="max_vehicles" value="50" min="1" max="200"
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
                 </div>
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                <button type="submit" class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
                     Scrape URL
                 </button>
             </form>
 
             <div class="border-t border-gray-100 pt-4">
                 <p class="text-xs font-medium text-gray-400 mb-2">Troostwijk Quick Scrape</p>
-                <form hx-post="/auto/scrape-troostwijk" hx-target="#action-result" hx-swap="innerHTML" class="flex items-end gap-3">
-                    <div class="w-28">
+                <form hx-post="/auto/scrape-troostwijk" hx-target="#action-result" hx-swap="innerHTML" class="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
+                    <div class="w-full sm:w-28">
                         <label class="block text-xs font-medium text-gray-500 mb-1">Pages</label>
                         <input type="number" name="pages" value="2" min="1" max="10"
                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
                     </div>
-                    <div class="w-28">
+                    <div class="w-full sm:w-28">
                         <label class="block text-xs font-medium text-gray-500 mb-1">Max Lots</label>
                         <input type="number" name="lots" value="20" min="1" max="100"
                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
                     </div>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                    <button type="submit" class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
                         Scrape Troostwijk
                     </button>
                 </form>
@@ -64,7 +64,7 @@
     <!-- Tabs -->
     <div x-data="{ activeTab: '{{ active_tab }}' }" class="mt-6">
         <div class="border-b border-gray-200">
-            <nav class="flex gap-6" role="tablist">
+            <nav class="flex gap-4 sm:gap-6 overflow-x-auto" role="tablist">
                 {% for tab_id, tab_label in [('favorites', 'Favorites'), ('best_deals', 'Best Deals'), ('all_vehicles', 'All Vehicles'), ('analysis', 'Analysis')] %}
                 <button @click="activeTab = '{{ tab_id }}'"
                         hx-get="/auto/tab/{{ tab_id }}"

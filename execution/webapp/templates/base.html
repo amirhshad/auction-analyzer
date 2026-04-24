@@ -16,13 +16,12 @@
         .htmx-request.htmx-indicator { opacity: 1; }
     </style>
     <script>
-        // Re-initialize Alpine on HTMX content swaps
         document.addEventListener('htmx:afterSwap', function(evt) {
             Alpine.initTree(evt.detail.target);
         });
     </script>
 </head>
-<body class="bg-gray-50 min-h-screen" x-data="{ toast: '', toastType: 'success', showToast: false }">
+<body class="bg-gray-50 min-h-screen" x-data="{ toast: '', toastType: 'success', showToast: false, sidebarOpen: false }">
     <!-- Toast notification -->
     <div x-show="showToast" x-cloak x-transition
          :class="toastType === 'error' ? 'bg-red-500' : 'bg-green-500'"
@@ -31,15 +30,37 @@
         <span x-text="toast"></span>
     </div>
 
+    <!-- Mobile top bar -->
+    <div class="lg:hidden flex items-center gap-3 bg-gray-900 text-white px-4 py-3">
+        <button @click="sidebarOpen = !sidebarOpen" class="p-1">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+        </button>
+        <h1 class="text-base font-bold">Auction Analyzer</h1>
+    </div>
+
     <div class="flex min-h-screen">
+        <!-- Sidebar overlay (mobile) -->
+        <div x-show="sidebarOpen" x-cloak @click="sidebarOpen = false"
+             class="fixed inset-0 bg-black/50 z-40 lg:hidden"></div>
+
         <!-- Sidebar -->
-        <nav class="w-56 bg-gray-900 text-white flex-shrink-0">
+        <nav :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+             class="fixed lg:static inset-y-0 left-0 z-50 w-56 bg-gray-900 text-white flex-shrink-0 transition-transform lg:translate-x-0">
             <div class="p-5">
-                <h1 class="text-lg font-bold tracking-tight">Auction Analyzer</h1>
+                <div class="flex items-center justify-between">
+                    <h1 class="text-lg font-bold tracking-tight">Auction Analyzer</h1>
+                    <button @click="sidebarOpen = false" class="lg:hidden p-1 text-gray-400 hover:text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <ul class="mt-2 space-y-1 px-3">
                 <li>
-                    <a href="/auto"
+                    <a href="/auto" @click="sidebarOpen = false"
                        class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition
                               {% if active_page == 'auto' %}bg-gray-700 text-white{% else %}text-gray-300 hover:bg-gray-800 hover:text-white{% endif %}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -51,7 +72,7 @@
                     </a>
                 </li>
                 <li>
-                    <a href="/goods"
+                    <a href="/goods" @click="sidebarOpen = false"
                        class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition
                               {% if active_page == 'goods' %}bg-gray-700 text-white{% else %}text-gray-300 hover:bg-gray-800 hover:text-white{% endif %}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,7 +85,7 @@
         </nav>
 
         <!-- Main content -->
-        <main class="flex-1 p-6 overflow-auto">
+        <main class="flex-1 p-4 lg:p-6 overflow-auto min-w-0">
             {% block content %}{% endblock %}
         </main>
     </div>

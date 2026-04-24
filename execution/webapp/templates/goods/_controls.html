@@ -1,8 +1,8 @@
 <!-- Goods auction selector + stats + action buttons + filters -->
 <div class="flex flex-col gap-4" x-data="{ selectedAuction: '{{ selected_auction }}' }">
     <!-- Row: Auction selector + delete + action buttons -->
-    <div class="flex items-end gap-3 flex-wrap">
-        <div class="w-72">
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 flex-wrap">
+        <div class="w-full sm:w-72">
             <label class="block text-xs font-medium text-gray-500 mb-1">Select Auction</label>
             <select name="auction" id="goods-auction-select"
                     x-model="selectedAuction"
@@ -26,22 +26,22 @@
             Delete Auction
         </button>
 
-        <div class="ml-auto flex gap-2">
+        <div class="sm:ml-auto flex flex-col sm:flex-row gap-2">
             <form hx-post="/goods/refresh-bids" hx-target="#action-result" hx-swap="innerHTML"
                   hx-include="#goods-auction-select">
-                <button type="submit" class="px-3 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700">
+                <button type="submit" class="w-full sm:w-auto px-3 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700">
                     Refresh Bids
                 </button>
             </form>
             <form hx-post="/goods/lookup-prices" hx-target="#action-result" hx-swap="innerHTML"
                   hx-include="#goods-auction-select">
-                <button type="submit" class="px-3 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700">
+                <button type="submit" class="w-full sm:w-auto px-3 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700">
                     Lookup Real Prices
                 </button>
             </form>
             <form hx-post="/goods/evaluate" hx-target="#action-result" hx-swap="innerHTML"
                   hx-include="#goods-auction-select">
-                <button type="submit" class="px-3 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700">
+                <button type="submit" class="w-full sm:w-auto px-3 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700">
                     AI Evaluate
                 </button>
             </form>
@@ -49,30 +49,30 @@
     </div>
 
     <!-- Stats -->
-    <div class="grid grid-cols-4 gap-4">
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        <div class="bg-white rounded-lg border border-gray-200 p-3 lg:p-4">
             <p class="text-xs font-medium text-gray-500">Total Items</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">{{ stats.total_items }}</p>
+            <p class="text-xl lg:text-2xl font-bold text-gray-900 mt-1">{{ stats.total_items }}</p>
         </div>
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <div class="bg-white rounded-lg border border-gray-200 p-3 lg:p-4">
             <p class="text-xs font-medium text-gray-500">Total Bids</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">{{ stats.total_bids }}</p>
+            <p class="text-xl lg:text-2xl font-bold text-gray-900 mt-1">{{ stats.total_bids }}</p>
         </div>
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <div class="bg-white rounded-lg border border-gray-200 p-3 lg:p-4">
             <p class="text-xs font-medium text-gray-500">Total Bid Value</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">&euro;{{ "{:,.0f}".format(stats.total_bid_value) }}</p>
+            <p class="text-xl lg:text-2xl font-bold text-gray-900 mt-1">&euro;{{ "{:,.0f}".format(stats.total_bid_value) }}</p>
         </div>
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <div class="bg-white rounded-lg border border-gray-200 p-3 lg:p-4">
             <p class="text-xs font-medium text-gray-500">Est. Retail Value</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">
+            <p class="text-xl lg:text-2xl font-bold text-gray-900 mt-1">
                 {% if stats.total_est_value %}&euro;{{ "{:,.0f}".format(stats.total_est_value) }}{% else %}N/A{% endif %}
             </p>
         </div>
     </div>
 
     <!-- Filters -->
-    <div class="flex gap-3">
-        <div class="w-48">
+    <div class="flex flex-col sm:flex-row gap-3">
+        <div class="w-full sm:w-48">
             <label class="block text-xs font-medium text-gray-500 mb-1">Filter by Category</label>
             <select name="category" id="goods-category-select"
                     hx-get="/goods/tab/{{ active_tab or 'favorites' }}"
@@ -86,7 +86,7 @@
                 {% endfor %}
             </select>
         </div>
-        <div class="w-48">
+        <div class="w-full sm:w-48">
             <label class="block text-xs font-medium text-gray-500 mb-1">Filter by Brand</label>
             <select name="brand" id="goods-brand-select"
                     hx-get="/goods/tab/{{ active_tab or 'favorites' }}"
