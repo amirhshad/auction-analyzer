@@ -173,10 +173,13 @@ class Repository:
 
     def get_market_prices(self, make: str, model: str,
                           year: Optional[int] = None, year_range: int = 1) -> list[MarketPrice]:
+        # Require non-empty make to avoid matching everything
+        if not make or not make.strip():
+            return []
         q = self.session.query(MarketPrice).filter(
             and_(
                 MarketPrice.make.ilike(f"%{make}%"),
-                MarketPrice.model.ilike(f"%{model}%"),
+                MarketPrice.model.ilike(f"%{model}%") if model and model.strip() else True,
             )
         )
         if year:

@@ -242,19 +242,28 @@ def auto_lookup_market(
     tm = get_task_manager()
     task_id = tm.create_task_id()
 
+    if not lookups:
+        return _render(request, "partials/_progress.html", {"task_id": "none"})
+
     def _do_lookup():
         from execution.scrape_gaspedaal import run as scrape_market
+        from execution.webapp.task_manager import TaskCancelled
         state = tm.get_state(task_id)
         total_found = 0
         for idx, (make, model, year, mileage_km) in enumerate(lookups):
+            if state and state.cancelled:
+                raise TaskCancelled("Stopped by user")
             if state:
                 state.progress = min(int((idx / max(len(lookups), 1)) * 90) + 10, 99)
                 state.message = f"Looking up {make} {model} ({idx + 1}/{len(lookups)})"
             try:
                 found = scrape_market(make=make, model=model, year=year, mileage_km=mileage_km)
                 total_found += len(found)
-            except Exception:
-                pass
+            except TaskCancelled:
+                raise
+            except Exception as e:
+                if state:
+                    state.message = f"Error for {make} {model}: {e} — continuing..."
         return {"total_found": total_found, "lookups": len(lookups)}
 
     tm.submit(task_id, _do_lookup)
