@@ -1,0 +1,118 @@
+<!-- Single goods deal card -->
+{% set risk_colors = {'low': {'text': 'text-green-700', 'bg': 'bg-green-100', 'border': 'border-green-300', 'accent': 'bg-green-500'},
+                       'medium': {'text': 'text-amber-700', 'bg': 'bg-amber-50', 'border': 'border-amber-300', 'accent': 'bg-amber-500'},
+                       'high': {'text': 'text-red-700', 'bg': 'bg-red-50', 'border': 'border-red-300', 'accent': 'bg-red-500'}} %}
+{% set rc = risk_colors.get(row.ai_risk_level, {'text': 'text-gray-600', 'bg': 'bg-gray-50', 'border': 'border-gray-200', 'accent': 'bg-gray-400'}) %}
+
+<div class="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition">
+    <!-- Header: title + risk badge -->
+    <div class="flex items-start justify-between">
+        <div>
+            {% if row.url %}
+            <a href="{{ row.url }}" target="_blank" class="text-base font-semibold text-gray-900 hover:text-blue-600">
+                {{ row.title }}
+            </a>
+            {% else %}
+            <span class="text-base font-semibold text-gray-900">{{ row.title }}</span>
+            {% endif %}
+            {% set subtitle_parts = [] %}
+            {% if row.brand != 'N/A' %}{% if subtitle_parts.append(row.brand) %}{% endif %}{% endif %}
+            {% if row.category != 'N/A' %}{% if subtitle_parts.append(row.category) %}{% endif %}{% endif %}
+            {% if subtitle_parts %}
+            <span class="text-xs text-gray-400 ml-2">{{ subtitle_parts | join(' · ') }}</span>
+            {% endif %}
+        </div>
+        {% if row.ai_risk_level %}
+        <span class="px-2.5 py-1 rounded-full text-xs font-bold text-white {{ rc.accent }}">
+            {{ row.ai_risk_level | upper }} RISK
+        </span>
+        {% endif %}
+    </div>
+
+    <!-- Current Bid -->
+    <div class="mt-3">
+        <p class="text-xs text-gray-500">Current Bid</p>
+        <p class="text-lg font-semibold text-gray-900">
+            {% if row.bid %}&euro;{{ "{:,.0f}".format(row.bid) }}{% else %}N/A{% endif %}
+        </p>
+    </div>
+
+    <!-- Retail Lookup row -->
+    {% if row.est_value %}
+    <div class="mt-3 pt-3 border-t border-gray-100">
+        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Retail Lookup</p>
+        <div class="grid grid-cols-3 gap-4">
+            <div>
+                <p class="text-xs text-gray-500">Retail Value</p>
+                <p class="text-base font-semibold text-gray-900">&euro;{{ "{:,.0f}".format(row.est_value) }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">Max Bid</p>
+                <p class="text-base font-semibold text-gray-900">
+                    {% if row.max_bid %}&euro;{{ "{:,.0f}".format(row.max_bid) }}{% else %}N/A{% endif %}
+                </p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">Savings</p>
+                {% if row.savings > 0 %}
+                <p class="text-base font-semibold text-green-600">
+                    &euro;{{ "{:,.0f}".format(row.savings) }}
+                    <span class="text-xs font-normal">({{ "{:.0f}".format(row.savings_pct) }}%)</span>
+                </p>
+                {% else %}
+                <p class="text-base font-semibold text-gray-400">N/A</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- AI Evaluation row -->
+    {% if row.ai_explanation %}
+    <div class="mt-3 pt-3 border-t border-gray-100">
+        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">AI Evaluation</p>
+        <div class="grid grid-cols-3 gap-4">
+            <div>
+                <p class="text-xs text-gray-500">AI Market Value</p>
+                <p class="text-base font-semibold text-gray-900">
+                    {% if row.ai_value %}&euro;{{ "{:,.0f}".format(row.ai_value) }}{% else %}N/A{% endif %}
+                </p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">AI Max Bid</p>
+                <p class="text-base font-semibold text-gray-900">
+                    {% if row.ai_max_bid %}&euro;{{ "{:,.0f}".format(row.ai_max_bid) }}{% else %}N/A{% endif %}
+                </p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">AI Savings</p>
+                {% if row.ai_savings > 0 %}
+                <p class="text-base font-semibold text-green-600">
+                    &euro;{{ "{:,.0f}".format(row.ai_savings) }}
+                    <span class="text-xs font-normal">({{ "{:.0f}".format(row.ai_savings_pct) }}%)</span>
+                </p>
+                {% else %}
+                <p class="text-base font-semibold text-gray-400">N/A</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- AI analysis bullets -->
+        {% set bullets = row.ai_explanation.replace('\n', '|').split('|') %}
+        {% set clean_bullets = [] %}
+        {% for b in bullets %}
+            {% set stripped = b.strip().lstrip('•-– ').strip() %}
+            {% if stripped %}{% if clean_bullets.append(stripped) %}{% endif %}{% endif %}
+        {% endfor %}
+        {% if clean_bullets %}
+        <div class="mt-2 {{ rc.bg }} border-l-4 {{ rc.border }} rounded-r-md px-3 py-2">
+            <ul class="text-xs {{ rc.text }} space-y-0.5">
+                {% for bullet in clean_bullets %}
+                <li>{{ bullet }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Goods Auctions — Auction Analyzer{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">Goods Auctions</h1>
+
+    <!-- Add Auction (collapsible) -->
+    <div x-data="{ showAdd: {{ 'true' if not auction_names else 'false' }} }" class="mb-6">
+        <button @click="showAdd = !showAdd"
+                class="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 mb-2">
+            <svg class="w-4 h-4 transition-transform" :class="showAdd && 'rotate-90'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+            Add Auction
+        </button>
+        <div x-show="showAdd" x-cloak x-transition class="bg-white rounded-lg border border-gray-200 p-5">
+            <form hx-post="/goods/scrape" hx-target="#action-result" hx-swap="innerHTML" class="flex items-end gap-3">
+                <div class="flex-1">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Auction URL</label>
+                    <input type="text" name="url" required
+                           placeholder="https://www.onlineveilingmeester.nl/... or https://www.troostwijkauctions.com/..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+                <div class="w-28">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Max Items</label>
+                    <input type="number" name="max_items" value="50" min="1" max="200"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                </div>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                    Scrape URL
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Action result (progress bars) -->
+    <div id="action-result"></div>
+
+    {% if auction_names or rows %}
+    <!-- Controls -->
+    {% include "goods/_controls.html" %}
+
+    <!-- Tabs -->
+    <div x-data="{ activeTab: '{{ active_tab }}' }" class="mt-6">
+        <div class="border-b border-gray-200">
+            <nav class="flex gap-6" role="tablist">
+                {% for tab_id, tab_label in [('favorites', 'Favorites'), ('best_deals', 'Best Deals'), ('all_items', 'All Items'), ('analysis', 'Analysis')] %}
+                <button @click="activeTab = '{{ tab_id }}'"
+                        hx-get="/goods/tab/{{ tab_id }}"
+                        hx-target="#tab-content"
+                        hx-include="#goods-auction-select, #goods-category-select, #goods-brand-select"
+                        hx-swap="innerHTML"
+                        :class="activeTab === '{{ tab_id }}' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="pb-3 text-sm font-medium border-b-2 transition">
+                    {{ tab_label }}
+                </button>
+                {% endfor %}
+            </nav>
+        </div>
+
+        <div id="tab-content" class="mt-4">
+            {% include "goods/_favorites.html" %}
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-lg border border-gray-200 p-12 text-center text-gray-500">
+        No goods auctions found. Add one using the form above.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

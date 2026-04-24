@@ -1,0 +1,91 @@
+<!-- All Vehicles data table with sortable columns -->
+{% if rows %}
+<script>
+    window.__autoRows = {{ rows | tojson }};
+</script>
+<div x-data="{
+    sortCol: '',
+    sortAsc: true,
+    rows: window.__autoRows,
+    get sortedRows() {
+        if (!this.sortCol) return this.rows;
+        const col = this.sortCol;
+        const asc = this.sortAsc;
+        return [...this.rows].sort((a, b) => {
+            let va = a[col] ?? '', vb = b[col] ?? '';
+            if (typeof va === 'string') va = va.toLowerCase();
+            if (typeof vb === 'string') vb = vb.toLowerCase();
+            return va < vb ? (asc ? -1 : 1) : va > vb ? (asc ? 1 : -1) : 0;
+        });
+    },
+    toggle(col) {
+        if (this.sortCol === col) this.sortAsc = !this.sortAsc;
+        else { this.sortCol = col; this.sortAsc = true; }
+    },
+    arrow(col) {
+        if (this.sortCol !== col) return '';
+        return this.sortAsc ? ' ▲' : ' ▼';
+    }
+}" class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-200">
+                <tr>
+                    <th class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Fav</th>
+                    <th @click="toggle('id')" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">ID<span x-text="arrow('id')" class="text-blue-600"></span></th>
+                    <th @click="toggle('make')" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Make<span x-text="arrow('make')" class="text-blue-600"></span></th>
+                    <th @click="toggle('model')" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Model<span x-text="arrow('model')" class="text-blue-600"></span></th>
+                    <th @click="toggle('year')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Year<span x-text="arrow('year')" class="text-blue-600"></span></th>
+                    <th @click="toggle('mileage_km')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Mileage<span x-text="arrow('mileage_km')" class="text-blue-600"></span></th>
+                    <th @click="toggle('bid')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Bid<span x-text="arrow('bid')" class="text-blue-600"></span></th>
+                    <th @click="toggle('market')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Market<span x-text="arrow('market')" class="text-blue-600"></span></th>
+                    <th @click="toggle('max_bid')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Max Bid<span x-text="arrow('max_bid')" class="text-blue-600"></span></th>
+                    <th @click="toggle('score')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Score<span x-text="arrow('score')" class="text-blue-600"></span></th>
+                    <th class="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase">Link</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                <template x-for="row in sortedRows" :key="row.id">
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-3 py-2.5">
+                            <input type="checkbox" :checked="row.fav"
+                                   class="w-4 h-4 accent-amber-500 cursor-pointer"
+                                   :hx-post="'/api/auto/favorite/' + row.id"
+                                   hx-swap="outerHTML" />
+                        </td>
+                        <td class="px-3 py-2.5 text-gray-500" x-text="row.id"></td>
+                        <td class="px-3 py-2.5 font-medium text-gray-900" x-text="row.make"></td>
+                        <td class="px-3 py-2.5 text-gray-700" x-text="row.model"></td>
+                        <td class="px-3 py-2.5 text-right text-gray-700" x-text="row.year || ''"></td>
+                        <td class="px-3 py-2.5 text-right text-gray-700" x-text="row.mileage_km ? row.mileage_km.toLocaleString('nl-NL') + ' km' : ''"></td>
+                        <td class="px-3 py-2.5 text-right font-medium text-gray-900" x-text="row.bid ? '€' + row.bid.toLocaleString('nl-NL', {maximumFractionDigits: 0}) : ''"></td>
+                        <td class="px-3 py-2.5 text-right text-gray-700" x-text="row.market ? '€' + row.market.toLocaleString('nl-NL', {maximumFractionDigits: 0}) : ''"></td>
+                        <td class="px-3 py-2.5 text-right text-gray-700" x-text="row.max_bid ? '€' + row.max_bid.toLocaleString('nl-NL', {maximumFractionDigits: 0}) : ''"></td>
+                        <td class="px-3 py-2.5 text-right">
+                            <template x-if="row.score">
+                                <span class="font-medium"
+                                      :class="{
+                                          'text-green-600': row.score >= 8,
+                                          'text-blue-600': row.score >= 6 && row.score < 8,
+                                          'text-amber-600': row.score >= 4 && row.score < 6,
+                                          'text-red-600': row.score < 4
+                                      }"
+                                      x-text="row.score + '/10'"></span>
+                            </template>
+                        </td>
+                        <td class="px-3 py-2.5 text-center">
+                            <template x-if="row.url">
+                                <a :href="row.url" target="_blank" class="text-blue-600 hover:text-blue-800 text-xs">View</a>
+                            </template>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center text-gray-500 text-sm">
+    No vehicles match the current filters.
+</div>
+{% endif %}

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Auction Analyzer{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://unpkg.com/htmx-ext-sse@2.3.0/sse.js"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+        .htmx-request .htmx-indicator { opacity: 1; }
+        .htmx-request.htmx-indicator { opacity: 1; }
+    </style>
+    <script>
+        // Re-initialize Alpine on HTMX content swaps
+        document.addEventListener('htmx:afterSwap', function(evt) {
+            Alpine.initTree(evt.detail.target);
+        });
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen" x-data="{ toast: '', toastType: 'success', showToast: false }">
+    <!-- Toast notification -->
+    <div x-show="showToast" x-cloak x-transition
+         :class="toastType === 'error' ? 'bg-red-500' : 'bg-green-500'"
+         class="fixed top-4 right-4 z-50 text-white px-6 py-3 rounded-lg shadow-lg"
+         @toast.window="toast = $event.detail.message; toastType = $event.detail.type || 'success'; showToast = true; setTimeout(() => showToast = false, 4000)">
+        <span x-text="toast"></span>
+    </div>
+
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <nav class="w-56 bg-gray-900 text-white flex-shrink-0">
+            <div class="p-5">
+                <h1 class="text-lg font-bold tracking-tight">Auction Analyzer</h1>
+            </div>
+            <ul class="mt-2 space-y-1 px-3">
+                <li>
+                    <a href="/auto"
+                       class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition
+                              {% if active_page == 'auto' %}bg-gray-700 text-white{% else %}text-gray-300 hover:bg-gray-800 hover:text-white{% endif %}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11h10l2-4h4l3 4v5h-2"/>
+                        </svg>
+                        Auto Auctions
+                    </a>
+                </li>
+                <li>
+                    <a href="/goods"
+                       class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition
+                              {% if active_page == 'goods' %}bg-gray-700 text-white{% else %}text-gray-300 hover:bg-gray-800 hover:text-white{% endif %}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                        </svg>
+                        Goods Auctions
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main content -->
+        <main class="flex-1 p-6 overflow-auto">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!-- Analysis tab: charts + tables -->
+{% if rows %}
+<div class="space-y-6">
+    <!-- Charts row -->
+    <div class="grid grid-cols-2 gap-6">
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <div id="chart-score-dist" style="height: 320px;"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <div id="chart-bid-market" style="height: 320px;"></div>
+        </div>
+    </div>
+
+    <!-- Make distribution pie -->
+    <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <div id="chart-make-pie" style="height: 350px;"></div>
+    </div>
+
+    <!-- Rating breakdown -->
+    {% set ratings = {} %}
+    {% for r in rows %}
+        {% if r.rating != 'N/A' %}
+            {% if ratings.update({r.rating: ratings.get(r.rating, 0) + 1}) %}{% endif %}
+        {% endif %}
+    {% endfor %}
+    {% if ratings %}
+    <div class="grid grid-cols-4 gap-4">
+        {% for label in ['Excellent', 'Good', 'Fair', 'Poor'] %}
+        {% set color = {'Excellent': 'green', 'Good': 'blue', 'Fair': 'amber', 'Poor': 'red'}[label] %}
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <p class="text-xs font-medium text-gray-500">{{ label }}</p>
+            <p class="text-2xl font-bold text-{{ color }}-600 mt-1">{{ ratings.get(label, 0) }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Make breakdown table -->
+    {% set make_data = {} %}
+    {% for r in rows %}
+        {% set m = r.make %}
+        {% if m not in make_data %}
+            {% if make_data.update({m: {'count': 0, 'total_bid': 0, 'scores': []}}) %}{% endif %}
+        {% endif %}
+        {% if make_data[m].update({'count': make_data[m].count + 1, 'total_bid': make_data[m].total_bid + r.bid}) %}{% endif %}
+        {% if r.score > 0 %}
+            {% if make_data[m].scores.append(r.score) %}{% endif %}
+        {% endif %}
+    {% endfor %}
+    {% if make_data %}
+    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <h3 class="px-4 py-3 text-sm font-semibold text-gray-900 border-b border-gray-200">By Make</h3>
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-200">
+                <tr>
+                    <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Make</th>
+                    <th class="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase">Vehicles</th>
+                    <th class="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase">Total Bids</th>
+                    <th class="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase">Avg Score</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for m, d in make_data.items() %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-2.5 font-medium text-gray-900">{{ m }}</td>
+                    <td class="px-4 py-2.5 text-right text-gray-700">{{ d.count }}</td>
+                    <td class="px-4 py-2.5 text-right text-gray-700">&euro;{{ "{:,.0f}".format(d.total_bid) }}</td>
+                    <td class="px-4 py-2.5 text-right text-gray-700">
+                        {% if d.scores %}{{ "{:.1f}".format(d.scores | sum / d.scores | length) }}/10{% else %}N/A{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Plotly chart scripts -->
+<script>
+(function() {
+    const rows = {{ rows | tojson }};
+    const layout = { margin: {t: 40, b: 40, l: 50, r: 20}, font: {size: 12} };
+
+    // Score distribution histogram
+    const scores = rows.filter(r => r.score > 0).map(r => r.score);
+    if (scores.length) {
+        Plotly.newPlot('chart-score-dist', [{
+            x: scores, type: 'histogram', nbinsx: 10,
+            marker: { color: '#3b82f6' }
+        }], {...layout, title: 'Deal Score Distribution', xaxis: {title: 'Deal Score'}, yaxis: {title: 'Count'}});
+    }
+
+    // Bid vs Market scatter
+    const scatter = rows.filter(r => r.bid > 0 && r.market > 0);
+    if (scatter.length) {
+        const maxVal = Math.max(...scatter.map(r => r.market)) * 1.1;
+        Plotly.newPlot('chart-bid-market', [
+            {
+                x: scatter.map(r => r.market), y: scatter.map(r => r.bid),
+                text: scatter.map(r => r.make + ' ' + r.model),
+                mode: 'markers', type: 'scatter',
+                marker: { color: scatter.map(r => r.score), colorscale: 'RdYlGn', size: 10, colorbar: {title: 'Score'} }
+            },
+            {
+                x: [0, maxVal], y: [0, maxVal], mode: 'lines', type: 'scatter',
+                line: {dash: 'dash', color: '#9ca3af'}, showlegend: false
+            }
+        ], {...layout, title: 'Bid vs Market Price', xaxis: {title: 'Market Price (€)'}, yaxis: {title: 'Bid (€)'}});
+    }
+
+    // Make distribution pie
+    const makeCounts = {};
+    rows.forEach(r => { makeCounts[r.make] = (makeCounts[r.make] || 0) + 1; });
+    const makes = Object.keys(makeCounts);
+    if (makes.length) {
+        Plotly.newPlot('chart-make-pie', [{
+            labels: makes, values: makes.map(m => makeCounts[m]),
+            type: 'pie', hole: 0.3, textposition: 'inside', textinfo: 'percent+label'
+        }], {...layout, title: 'Vehicle Distribution by Make'});
+    }
+})();
+</script>
+{% else %}
+<div class="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center text-gray-500 text-sm">
+    No data available for analysis.
+</div>
+{% endif %}

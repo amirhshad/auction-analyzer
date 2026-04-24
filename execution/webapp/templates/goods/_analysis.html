@@ -1,0 +1,106 @@
+<!-- Goods Analysis tab: charts + tables -->
+{% if rows %}
+<div class="space-y-6">
+    <!-- Charts row -->
+    <div class="grid grid-cols-2 gap-6">
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <div id="chart-cat-pie" style="height: 320px;"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <div id="chart-bid-est" style="height: 320px;"></div>
+        </div>
+    </div>
+
+    <!-- Brand distribution pie -->
+    <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <div id="chart-brand-pie" style="height: 350px;"></div>
+    </div>
+
+    <!-- Category breakdown table -->
+    {% set cat_data = {} %}
+    {% for r in rows %}
+        {% set c = r.category %}
+        {% if c not in cat_data %}
+            {% if cat_data.update({c: {'count': 0, 'total_bid': 0, 'total_est': 0}}) %}{% endif %}
+        {% endif %}
+        {% if cat_data[c].update({'count': cat_data[c].count + 1, 'total_bid': cat_data[c].total_bid + r.bid, 'total_est': cat_data[c].total_est + r.est_value}) %}{% endif %}
+    {% endfor %}
+    {% if cat_data %}
+    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <h3 class="px-4 py-3 text-sm font-semibold text-gray-900 border-b border-gray-200">By Category</h3>
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-200">
+                <tr>
+                    <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                    <th class="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase">Items</th>
+                    <th class="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase">Total Bids</th>
+                    <th class="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase">Total Est. Value</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for c, d in cat_data.items() %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-2.5 font-medium text-gray-900">{{ c }}</td>
+                    <td class="px-4 py-2.5 text-right text-gray-700">{{ d.count }}</td>
+                    <td class="px-4 py-2.5 text-right text-gray-700">&euro;{{ "{:,.0f}".format(d.total_bid) }}</td>
+                    <td class="px-4 py-2.5 text-right text-gray-700">&euro;{{ "{:,.0f}".format(d.total_est) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Plotly chart scripts -->
+<script>
+(function() {
+    const rows = {{ rows | tojson }};
+    const layout = { margin: {t: 40, b: 40, l: 50, r: 20}, font: {size: 12} };
+
+    // Category distribution pie
+    const catCounts = {};
+    rows.forEach(r => { catCounts[r.category] = (catCounts[r.category] || 0) + 1; });
+    const cats = Object.keys(catCounts);
+    if (cats.length) {
+        Plotly.newPlot('chart-cat-pie', [{
+            labels: cats, values: cats.map(c => catCounts[c]),
+            type: 'pie', hole: 0.3, textposition: 'inside', textinfo: 'percent+label'
+        }], {...layout, title: 'Item Distribution by Category'});
+    }
+
+    // Bid vs Estimated Value scatter
+    const scatter = rows.filter(r => r.bid > 0 && r.est_value > 0);
+    if (scatter.length) {
+        const maxVal = Math.max(...scatter.map(r => r.est_value)) * 1.1;
+        Plotly.newPlot('chart-bid-est', [
+            {
+                x: scatter.map(r => r.est_value), y: scatter.map(r => r.bid),
+                text: scatter.map(r => r.title),
+                mode: 'markers', type: 'scatter',
+                marker: { color: scatter.map(r => r.category), size: 10 }
+            },
+            {
+                x: [0, maxVal], y: [0, maxVal], mode: 'lines', type: 'scatter',
+                line: {dash: 'dash', color: '#9ca3af'}, showlegend: false
+            }
+        ], {...layout, title: 'Bid vs Estimated Value', xaxis: {title: 'Est. Value (€)'}, yaxis: {title: 'Bid (€)'}});
+    }
+
+    // Brand distribution pie
+    const brandCounts = {};
+    rows.forEach(r => { if (r.brand !== 'N/A') brandCounts[r.brand] = (brandCounts[r.brand] || 0) + 1; });
+    const brands = Object.keys(brandCounts);
+    if (brands.length) {
+        Plotly.newPlot('chart-brand-pie', [{
+            labels: brands, values: brands.map(b => brandCounts[b]),
+            type: 'pie', hole: 0.3, textposition: 'inside', textinfo: 'percent+label'
+        }], {...layout, title: 'Item Distribution by Brand'});
+    }
+})();
+</script>
+{% else %}
+<div class="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center text-gray-500 text-sm">
+    No data available for analysis.
+</div>
+{% endif %}

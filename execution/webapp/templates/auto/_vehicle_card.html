@@ -1,0 +1,61 @@
+<!-- Single vehicle deal card -->
+<div class="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition">
+    <div class="flex items-start justify-between">
+        <div>
+            {% if row.url %}
+            <a href="{{ row.url }}" target="_blank" class="text-base font-semibold text-gray-900 hover:text-blue-600">
+                {{ row.make }} {{ row.model }}
+            </a>
+            {% else %}
+            <span class="text-base font-semibold text-gray-900">{{ row.make }} {{ row.model }}</span>
+            {% endif %}
+            <span class="text-sm text-gray-500 ml-1">({{ row.year }})</span>
+            {% if row.mileage_km %}
+            <span class="text-xs text-gray-400 ml-2">{{ "{:,}".format(row.mileage_km) }} km</span>
+            {% endif %}
+        </div>
+        <div class="flex items-center gap-2">
+            {% set score_color = 'text-green-600' if row.score >= 8 else ('text-blue-600' if row.score >= 6 else ('text-amber-600' if row.score >= 4 else 'text-red-600')) %}
+            {% set score_bg = 'bg-green-50' if row.score >= 8 else ('bg-blue-50' if row.score >= 6 else ('bg-amber-50' if row.score >= 4 else 'bg-red-50')) %}
+            <span class="px-2.5 py-1 rounded-full text-xs font-bold {{ score_color }} {{ score_bg }}">
+                {{ row.score }}/10 &middot; {{ row.rating }}
+            </span>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-4 gap-4 mt-3">
+        <div>
+            <p class="text-xs text-gray-500">Current Bid</p>
+            <p class="text-lg font-semibold text-gray-900">
+                {% if row.bid %}&euro;{{ "{:,.0f}".format(row.bid) }}{% else %}N/A{% endif %}
+            </p>
+        </div>
+        <div>
+            <p class="text-xs text-gray-500">Market Price</p>
+            <p class="text-lg font-semibold text-gray-900">
+                {% if row.market %}&euro;{{ "{:,.0f}".format(row.market) }}{% else %}N/A{% endif %}
+            </p>
+        </div>
+        <div>
+            <p class="text-xs text-gray-500">Savings</p>
+            {% if row.savings > 0 %}
+            <p class="text-lg font-semibold text-green-600">
+                &euro;{{ "{:,.0f}".format(row.savings) }}
+                <span class="text-xs font-normal">({{ "{:.0f}".format(row.savings_pct) }}%)</span>
+            </p>
+            {% else %}
+            <p class="text-lg font-semibold text-gray-400">N/A</p>
+            {% endif %}
+        </div>
+        <div>
+            <p class="text-xs text-gray-500">Max Bid</p>
+            <p class="text-lg font-semibold text-gray-900">
+                {% if row.max_bid %}&euro;{{ "{:,.0f}".format(row.max_bid) }}{% else %}N/A{% endif %}
+            </p>
+        </div>
+    </div>
+
+    {% if row.recommendation %}
+    <p class="text-xs text-gray-500 mt-2">{{ row.recommendation }}</p>
+    {% endif %}
+</div>

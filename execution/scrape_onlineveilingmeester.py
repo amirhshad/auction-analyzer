@@ -1,10 +1,9 @@
 """
 OnlineVeilingmeester Auction Scraper
-Uses Playwright for JavaScript-rendered content.
-Supports both Dutch and English URL formats.
+Uses the OVM REST API for reliable data extraction.
 
 Usage:
-    python -m execution.scrape_onlineveilingmeester --url "https://www.onlineveilingmeester.nl/nl/veilingen/..."
+    python -m execution.scrape_onlineveilingmeester --url "https://www.onlineveilingmeester.nl/en/auctions/8673/lots"
 """
 
 import argparse
@@ -13,250 +12,237 @@ import re
 import sys
 from typing import Optional
 
+import httpx
+
 from execution.config import SCRAPING_DELAY_SECONDS
 from execution.rate_limiter import RateLimiter
 from execution.db_repository import Repository
 
-# URL pattern mappings (Dutch ↔ English)
-URL_PATTERNS = {
-    "/veilingen/": "/auctions/",
-    "/kavels/": "/lots/",
-    "/auctions/": "/veilingen/",
-    "/lots/": "/kavels/",
+
+OVM_BASE = "https://www.onlineveilingmeester.nl"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json",
+}
+IMAGE_BASE = "https://www.onlineveilingmeester.nl/images/800x600"
+
+
+def _extract_auction_id(url: str) -> Optional[str]:
+    """Extract auction ID from URL like /auctions/8673/lots or /veilingen/8673/kavels."""
+    m = re.search(r'/(?:auctions|veilingen)/(\d+)', url)
+    return m.group(1) if m else None
+
+
+def _parse_mileage_from_specs(specs_html: str) -> Optional[int]:
+    """Extract mileage from HTML specs text like 'Afgelezen tellerstand: 155.686'."""
+    if not specs_html:
+        return None
+    # Strip HTML tags
+    text = re.sub(r'<[^>]+>', '\n', specs_html)
+    for line in text.split('\n'):
+        line = line.strip()
+        if any(w in line.lower() for w in ('tellerstand', 'kilometerstand')):
+            nums = re.sub(r'[^\d]', '', line.split(':')[-1] if ':' in line else line)
+            if nums:
+                return int(nums)
+    return None
+
+
+def _parse_fuel_from_specs(specs_html: str) -> Optional[str]:
+    """Extract fuel type from HTML specs text."""
+    if not specs_html:
+        return None
+    text = re.sub(r'<[^>]+>', '\n', specs_html)
+    for line in text.split('\n'):
+        line = line.strip()
+        if 'brandstof' in line.lower() or 'fuel' in line.lower():
+            val = line.split(':')[-1].strip() if ':' in line else None
+            if val:
+                return val.capitalize()
+    return None
+
+
+_TRANSMISSION_MAP = {
+    "AUTOMAAT": "Automatic",
+    "HANDGESCHAKELD": "Manual",
+    "SEMI_AUTOMAAT": "Semi-automatic",
+}
+
+_FUEL_MAP = {
+    "DIESEL": "Diesel",
+    "BENZINE": "Petrol",
+    "ELEKTRISCH": "Electric",
+    "HYBRIDE": "Hybrid",
+    "LPG": "LPG",
+    "CNG": "CNG",
 }
 
 
-def normalize_url(url: str) -> str:
-    """Ensure URL is well-formed."""
-    if not url.startswith("http"):
-        url = "https://" + url
-    return url.rstrip("/")
-
-
-def get_lot_urls_pattern(url: str) -> str:
-    """Convert auction URL to lots URL pattern."""
-    # /veilingen/X → /kavels/X or /auctions/X → /lots/X
-    for dutch, english in [("/veilingen/", "/kavels/"), ("/auctions/", "/lots/")]:
-        if dutch in url:
-            return url.replace(dutch, english.replace("/lots/", "/kavels/"))
-    return url
-
-
-def parse_price(text: str) -> Optional[float]:
-    """Parse price from text."""
-    if not text:
-        return None
-    cleaned = re.sub(r'[€\s]', '', text)
-    if ',' in cleaned and '.' in cleaned:
-        cleaned = cleaned.replace('.', '').replace(',', '.')
-    elif ',' in cleaned:
-        cleaned = cleaned.replace(',', '.')
-    try:
-        return float(cleaned)
-    except ValueError:
-        return None
-
-
-def parse_int(text: str) -> Optional[int]:
-    if not text:
-        return None
-    nums = re.sub(r'[^\d]', '', text)
-    return int(nums) if nums else None
-
-
-def run(url: str) -> list[dict]:
-    """Main scraper entry point."""
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        print("Error: playwright not installed. Run: pip install playwright && playwright install chromium", file=sys.stderr)
+def run(url: str, progress_callback=None) -> list[dict]:
+    """Main scraper entry point. Uses OVM REST API for reliable data extraction."""
+    auction_id = _extract_auction_id(url)
+    if not auction_id:
+        print(f"Error: Could not extract auction ID from URL: {url}", file=sys.stderr)
         return []
 
-    url = normalize_url(url)
     rate_limiter = RateLimiter(SCRAPING_DELAY_SECONDS)
     repo = Repository()
     results = []
 
-    print(f"Scraping OnlineVeilingmeester: {url}")
+    print(f"Scraping OnlineVeilingmeester auction {auction_id} via API...")
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            locale="nl-NL",
-        )
-        page = context.new_page()
+    client = httpx.Client(headers=HEADERS, timeout=30.0)
 
-        try:
-            rate_limiter.wait()
-            page.goto(url, wait_until="domcontentloaded", timeout=30000)
-            page.wait_for_timeout(3000)
+    try:
+        # Step 1: Get list of lot numbers
+        rate_limiter.wait()
+        resp = client.get(f"{OVM_BASE}/rest/en/veilingen/{auction_id}/kavelVolgNummers")
+        resp.raise_for_status()
+        lot_numbers = resp.json().get("volgNummers", [])
 
-            # Handle cookie consent
+        # Get auction name
+        rate_limiter.wait()
+        resp_info = client.get(f"{OVM_BASE}/rest/nl/v2/veilingen/{auction_id}/kavels/{lot_numbers[0]}")
+        auction_name = "OnlineVeilingmeester"
+        if resp_info.status_code == 200:
+            veiling = resp_info.json().get("veiling", {})
+            auction_name = veiling.get("naam", auction_name)
+
+        total = len(lot_numbers)
+        print(f"  Auction: {auction_name}")
+        print(f"  Found {total} lots")
+
+        if progress_callback:
+            progress_callback(0, total, f"Found {total} lots to scrape...")
+
+        # Step 2: Fetch each lot from the Dutch API (has full specs)
+        for i, lot_num in enumerate(lot_numbers, 1):
+            if progress_callback:
+                progress_callback(i, total, f"Fetching lot {i}/{total}...")
+
             try:
-                consent = page.locator("button:has-text('Akkoord'), button:has-text('Accept'), .cookie-accept")
-                if consent.count() > 0:
-                    consent.first.click(timeout=5000)
-                    page.wait_for_timeout(1000)
-            except Exception:
-                pass
-
-            # Extract auction name
-            auction_name = ""
-            title_el = page.locator("h1, .auction-title, .veilingtitel")
-            if title_el.count() > 0:
-                auction_name = title_el.first.text_content().strip()
-
-            # Find lot links
-            lot_links = page.locator("a[href*='/kavels/'], a[href*='/lots/'], a[href*='/kavel/'], a[href*='/lot/']")
-            lot_urls = set()
-            for i in range(lot_links.count()):
-                href = lot_links.nth(i).get_attribute("href")
-                if href:
-                    if href.startswith("/"):
-                        # Get base domain from url
-                        domain = re.match(r'https?://[^/]+', url)
-                        href = (domain.group(0) if domain else "") + href
-                    lot_urls.add(href)
-
-            print(f"  Auction: {auction_name}")
-            print(f"  Found {len(lot_urls)} lots")
-
-            # Scrape each lot
-            for i, lot_url in enumerate(sorted(lot_urls), 1):
                 rate_limiter.wait()
-                print(f"  [{i}/{len(lot_urls)}] {lot_url}")
-
-                try:
-                    page.goto(lot_url, wait_until="domcontentloaded", timeout=30000)
-                    page.wait_for_timeout(2000)
-
-                    # Extract lot ID
-                    lot_id = re.search(r'/(?:kavel|lot|kavels|lots)/(\d+)', lot_url)
-                    external_id = lot_id.group(1) if lot_id else lot_url.split("/")[-1]
-
-                    # Title
-                    lot_title = page.locator("h1, .lot-title, .kaveltitel")
-                    title_text = lot_title.first.text_content().strip() if lot_title.count() > 0 else ""
-                    parts = title_text.split(None, 1)
-                    vehicle_make = parts[0] if len(parts) >= 1 else None
-                    vehicle_model = parts[1] if len(parts) >= 2 else None
-
-                    # Specs table
-                    specs = {}
-                    rows = page.locator("table tr, .specs-row, .kavel-specs tr, dl dt")
-                    for j in range(rows.count()):
-                        row_text = rows.nth(j).text_content().strip()
-                        # Try to split on common delimiters
-                        for sep in [":", "\t", "  "]:
-                            if sep in row_text:
-                                k, v = row_text.split(sep, 1)
-                                specs[k.strip().lower()] = v.strip()
-                                break
-
-                    year = None
-                    mileage_km = None
-                    fuel_type = None
-                    power_hp = None
-                    transmission = None
-                    color = None
-                    condition_notes = None
-
-                    for key, val in specs.items():
-                        if any(w in key for w in ("bouwjaar", "year", "jaar")):
-                            year = parse_int(val)
-                        elif any(w in key for w in ("km", "mileage", "kilometerstand")):
-                            mileage_km = parse_int(val)
-                        elif any(w in key for w in ("brandstof", "fuel")):
-                            fuel_type = val
-                        elif any(w in key for w in ("vermogen", "power", "pk")):
-                            power_hp = parse_int(val)
-                        elif any(w in key for w in ("transmissie", "transmission")):
-                            transmission = val
-                        elif any(w in key for w in ("kleur", "color", "colour")):
-                            color = val
-                        elif any(w in key for w in ("staat", "condition", "beschrijving")):
-                            condition_notes = val
-
-                    # Images
-                    image_els = page.locator("img[src*='lot'], img[src*='kavel'], .gallery img, .lot-images img")
-                    image_urls = []
-                    for j in range(min(image_els.count(), 20)):
-                        src = image_els.nth(j).get_attribute("src") or image_els.nth(j).get_attribute("data-src") or ""
-                        if src and "http" in src:
-                            image_urls.append(src)
-
-                    # Current bid
-                    bid_el = page.locator(".current-bid, .huidige-bieding, [data-current-bid], .bid-amount")
-                    current_bid = None
-                    if bid_el.count() > 0:
-                        current_bid = parse_price(bid_el.first.text_content())
-
-                    # Bid count
-                    count_el = page.locator(".bid-count, .aantal-biedingen, [data-bid-count]")
-                    bid_count = None
-                    if count_el.count() > 0:
-                        bid_count = parse_int(count_el.first.text_content())
-
-                    # End time
-                    end_el = page.locator(".end-time, .sluitingstijd, time[datetime], [data-end-time]")
-                    end_time = None
-                    if end_el.count() > 0:
-                        end_time = end_el.first.get_attribute("datetime") or end_el.first.text_content().strip()
-
-                    # Store in DB
-                    db_vehicle = repo.upsert_vehicle(
-                        external_id=external_id,
-                        source="onlineveilingmeester",
-                        url=lot_url,
-                        make=vehicle_make,
-                        model=vehicle_model,
-                        year=year,
-                        mileage_km=mileage_km,
-                        fuel_type=fuel_type,
-                        power_hp=power_hp,
-                        transmission=transmission,
-                        color=color,
-                        condition_notes=condition_notes,
-                        image_urls_json=json.dumps(image_urls),
-                    )
-
-                    repo.upsert_auction(
-                        vehicle_id=db_vehicle.id,
-                        auction_name=auction_name or "OnlineVeilingmeester",
-                        current_bid=current_bid,
-                        bid_count=bid_count,
-                        end_time=end_time,
-                    )
-
-                    if current_bid is not None:
-                        repo.add_price_history(
-                            vehicle_id=db_vehicle.id,
-                            bid_amount=current_bid,
-                            bid_count=bid_count,
-                        )
-
-                    result = {
-                        "external_id": external_id,
-                        "make": vehicle_make,
-                        "model": vehicle_model,
-                        "year": year,
-                        "mileage_km": mileage_km,
-                        "current_bid": current_bid,
-                        "bid_count": bid_count,
-                        "url": lot_url,
-                    }
-                    results.append(result)
-                    print(f"    Stored: {vehicle_make} {vehicle_model} ({year})")
-
-                except Exception as e:
-                    print(f"    Error scraping lot: {e}", file=sys.stderr)
+                resp = client.get(f"{OVM_BASE}/rest/nl/v2/veilingen/{auction_id}/kavels/{lot_num}")
+                if resp.status_code != 200:
+                    print(f"  [{i}/{total}] Lot {lot_num} — HTTP {resp.status_code}", file=sys.stderr)
                     continue
 
-        except Exception as e:
-            print(f"Error during scraping: {e}", file=sys.stderr)
-        finally:
-            browser.close()
+                data = resp.json()
+                kd = data.get("kavelData", {})
+
+                # Extract vehicle info from kavelData
+                title = kd.get("naam", "")
+                make = kd.get("merk")
+                model = kd.get("productType")
+                year_str = kd.get("bouwjaar")
+                year = int(year_str) if year_str and year_str.isdigit() else None
+                mileage_km = kd.get("kilometerstand")
+                if isinstance(mileage_km, str):
+                    mileage_km = int(re.sub(r'[^\d]', '', mileage_km)) if re.sub(r'[^\d]', '', mileage_km) else None
+
+                # Fuel and transmission from kavelData or specs HTML
+                fuel_raw = kd.get("brandstof", "")
+                fuel_type = _FUEL_MAP.get(fuel_raw.upper()) if fuel_raw else None
+                trans_raw = kd.get("transmissie", "")
+                transmission = _TRANSMISSION_MAP.get(trans_raw.upper()) if trans_raw else None
+
+                condition = kd.get("conditie")
+                specs_html = kd.get("specificaties", "")
+
+                # Fallbacks from specs HTML
+                if not mileage_km:
+                    mileage_km = _parse_mileage_from_specs(specs_html)
+                if not fuel_type:
+                    fuel_type = _parse_fuel_from_specs(specs_html)
+
+                # Fallback: parse title for make/model/year
+                if not make and title:
+                    parts = [p.strip() for p in title.split(",") if p.strip()]
+                    if len(parts) >= 2:
+                        make = parts[1]
+                    if len(parts) >= 3:
+                        last = parts[-1].strip()
+                        if re.match(r'^(19|20)\d{2}$', last):
+                            if not year:
+                                year = int(last)
+                            model = ", ".join(parts[2:-1]) if len(parts) > 3 else None
+                        else:
+                            model = ", ".join(parts[2:])
+
+                # Current bid and bid count
+                current_bid = data.get("hoogsteBod")
+                bid_count = data.get("aantalBiedingen")
+                end_time_str = data.get("sluitingsDatumISO")
+                end_time = None
+                if end_time_str:
+                    from datetime import datetime
+                    try:
+                        end_time = datetime.fromisoformat(end_time_str.replace("Z", "+00:00"))
+                    except (ValueError, TypeError):
+                        pass
+
+                # Images (first 20)
+                image_list = data.get("imageList", [])[:20]
+                image_urls = [f"{IMAGE_BASE}/{img}" for img in image_list]
+
+                # Lot URL
+                lot_url = f"{OVM_BASE}/en/auctions/{auction_id}/lots/{lot_num}"
+
+                # Store in DB
+                external_id = str(lot_num)
+                db_vehicle = repo.upsert_vehicle(
+                    external_id=external_id,
+                    source="onlineveilingmeester",
+                    url=lot_url,
+                    make=make,
+                    model=model,
+                    year=year,
+                    mileage_km=mileage_km,
+                    fuel_type=fuel_type,
+                    transmission=transmission,
+                    condition_notes=condition,
+                    image_urls_json=json.dumps(image_urls) if image_urls else None,
+                )
+
+                repo.upsert_auction(
+                    vehicle_id=db_vehicle.id,
+                    auction_name=auction_name,
+                    current_bid=current_bid,
+                    bid_count=bid_count,
+                    end_time=end_time,
+                )
+
+                if current_bid is not None:
+                    repo.add_price_history(
+                        vehicle_id=db_vehicle.id,
+                        bid_amount=current_bid,
+                        bid_count=bid_count,
+                    )
+
+                result = {
+                    "external_id": external_id,
+                    "make": make,
+                    "model": model,
+                    "year": year,
+                    "mileage_km": mileage_km,
+                    "fuel_type": fuel_type,
+                    "current_bid": current_bid,
+                    "bid_count": bid_count,
+                    "url": lot_url,
+                }
+                results.append(result)
+                bid_str = f"€{current_bid:,.0f}" if current_bid else "no bid"
+                km_str = f"{mileage_km:,} km" if mileage_km else "? km"
+                print(f"  [{i}/{total}] {make} {model} ({year}) — {km_str} — {bid_str}")
+
+            except Exception as e:
+                print(f"  [{i}/{total}] Lot {lot_num} — error: {e}", file=sys.stderr)
+                continue
+
+    except Exception as e:
+        print(f"Error during scraping: {e}", file=sys.stderr)
+    finally:
+        client.close()
 
     repo.close()
     print(f"\nDone. Scraped {len(results)} vehicles.")

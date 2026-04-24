@@ -259,11 +259,11 @@ def page_auto_auctions():
             "Make": v.make or "N/A",
             "Model": v.model or "N/A",
             "Year": v.year or 0,
-            "Mileage (km)": f"{v.mileage_km:,}" if v.mileage_km else "N/A",
-            "Current Bid": f"€{auction.current_bid:,.0f}" if auction and auction.current_bid else "N/A",
-            "Market Price": f"€{avg_market:,.0f}" if avg_market else "N/A",
-            "Max Bid": f"€{strategy.max_bid:,.0f}" if strategy and strategy.max_bid else "N/A",
-            "Deal Score": f"{deal.score}/10 ({deal.rating})" if deal else "N/A",
+            "Mileage (km)": v.mileage_km if v.mileage_km else None,
+            "Current Bid": auction.current_bid if auction and auction.current_bid else None,
+            "Market Price": avg_market if avg_market else None,
+            "Max Bid": strategy.max_bid if strategy and strategy.max_bid else None,
+            "Deal Score": deal.score if deal else None,
             "Auction Link": v.url or "",
             # Raw values for sorting/analysis
             "_score": deal.score if deal else 0,
@@ -316,8 +316,8 @@ def page_auto_auctions():
                         cols[0].markdown(f"**[{r['Make']} {r['Model']}]({link})** ({r['Year']})")
                     else:
                         cols[0].markdown(f"**{r['Make']} {r['Model']}** ({r['Year']})")
-                    cols[1].metric("Bid", r["Current Bid"])
-                    cols[2].metric("Market", r["Market Price"])
+                    cols[1].metric("Bid", f"€{r['Current Bid']:,.0f}" if r["Current Bid"] else "N/A")
+                    cols[2].metric("Market", f"€{r['Market Price']:,.0f}" if r["Market Price"] else "N/A")
                     cols[3].metric("Savings", f"€{savings:,.0f}" if savings > 0 else "N/A",
                                    delta=f"{savings / market * 100:.0f}%" if market and savings > 0 else None)
                     cols[4].metric("Score", f"{score_val}/10", delta=rating,
@@ -349,8 +349,8 @@ def page_auto_auctions():
                     cols[0].markdown(f"**[{r['Make']} {r['Model']}]({link})** ({r['Year']})")
                 else:
                     cols[0].markdown(f"**{r['Make']} {r['Model']}** ({r['Year']})")
-                cols[1].metric("Bid", r["Current Bid"])
-                cols[2].metric("Market", r["Market Price"])
+                cols[1].metric("Bid", f"€{r['Current Bid']:,.0f}" if r["Current Bid"] else "N/A")
+                cols[2].metric("Market", f"€{r['Market Price']:,.0f}" if r["Market Price"] else "N/A")
                 cols[3].metric("Savings", f"€{savings:,.0f}" if savings > 0 else "N/A",
                                delta=f"{savings / market * 100:.0f}%" if market and savings > 0 else None)
                 cols[4].metric("Score", f"{score_val}/10", delta=rating,
@@ -372,6 +372,11 @@ def page_auto_auctions():
             column_config={
                 **link_config,
                 "Fav": st.column_config.CheckboxColumn("Fav", default=False),
+                "Mileage (km)": st.column_config.NumberColumn("Mileage (km)", format="%d km"),
+                "Current Bid": st.column_config.NumberColumn("Current Bid", format="€%d"),
+                "Market Price": st.column_config.NumberColumn("Market Price", format="€%d"),
+                "Max Bid": st.column_config.NumberColumn("Max Bid", format="€%d"),
+                "Deal Score": st.column_config.NumberColumn("Deal Score", format="%d/10"),
             },
             disabled=[c for c in display_cols if c != "Fav"],
             key="auto_fav_editor",
@@ -564,6 +569,34 @@ def page_goods_auctions():
     c3.metric("Total Bid Value", f"€{total_bid_val:,.0f}")
     c4.metric("Est. Retail Value", f"€{total_est_val:,.0f}" if total_est_val else "N/A")
 
+    # Refresh Bid Prices button
+    if st.button("Refresh Bid Prices", key="refresh_bid_prices"):
+        from execution.refresh_bids import refresh_bids
+        progress_bar = st.progress(0, text="Starting bid refresh...")
+
+        def _bid_progress(current, total, message):
+            if total > 0:
+                pct = min(int((current / total) * 95) + 5, 99)
+            else:
+                pct = 5
+            progress_bar.progress(pct, text=message)
+
+        try:
+            auction_filter = selected_auction if selected_auction != "All" else None
+            summary = refresh_bids(
+                auction_name=auction_filter,
+                progress_callback=_bid_progress,
+            )
+            progress_bar.progress(100, text="Done!")
+            st.success(
+                f"Updated {summary['updated']}/{summary['total']} bids"
+                + (f" ({summary['failed']} failed)" if summary['failed'] else "")
+            )
+            st.rerun()
+        except Exception as e:
+            progress_bar.empty()
+            st.error(f"Bid refresh failed: {e}")
+
     # Lookup Real Prices button
     if st.button("Lookup Real Prices (bol.com + Amazon)", key="lookup_goods_prices"):
         from execution.scrape_retail_prices import lookup_goods_prices
@@ -659,13 +692,13 @@ def page_goods_auctions():
 
         # Rating /10 based on savings percentage (bid vs estimated value)
         if not est or not bid:
-            rating = "N/A"
+            rating = None
             rating_num = 0
         else:
             rating_num = min(10, max(1, round(savings_pct / 5)))
             if savings_pct <= 0:
                 rating_num = 1
-            rating = f"{rating_num}/10"
+            rating = rating_num
 
         goods_id_map[len(rows)] = item.id
         goods_item_map[len(rows)] = item
@@ -677,11 +710,11 @@ def page_goods_auctions():
             "Brand": item.brand or "N/A",
             "Condition": item.condition or "N/A",
             "Qty": item.quantity or 1,
-            "Current Bid": f"€{item.current_bid:,.0f}" if item.current_bid else "N/A",
-            "Est. Value": f"€{item.estimated_value:,.0f}" if item.estimated_value else "N/A",
-            "Max Bid": f"€{item.recommended_max_bid:,.0f}" if item.recommended_max_bid else "N/A",
-            "AI Value": f"€{item.ai_estimated_value:,.0f}" if item.ai_estimated_value else "",
-            "AI Max Bid": f"€{item.ai_recommended_max_bid:,.0f}" if item.ai_recommended_max_bid else "",
+            "Current Bid": item.current_bid if item.current_bid else None,
+            "Est. Value": item.estimated_value if item.estimated_value else None,
+            "Max Bid": item.recommended_max_bid if item.recommended_max_bid else None,
+            "AI Value": item.ai_estimated_value if item.ai_estimated_value else None,
+            "AI Max Bid": item.ai_recommended_max_bid if item.ai_recommended_max_bid else None,
             "Risk": (item.ai_risk_level or "").title(),
             "Rating": rating,
             "Auction Link": item.url or "",
@@ -727,7 +760,7 @@ def page_goods_auctions():
         savings_pct = r["_savings_pct"]
         ai_value = r["_ai_value"]
         has_ai = bool(r["_ai_explanation"])
-        has_retail = bool(r["Est. Value"] and r["Est. Value"] != "N/A")
+        has_retail = bool(r["Est. Value"])
         risk_level = r["_ai_risk_level"]
         risk_color = {"low": "#16a34a", "medium": "#d97706", "high": "#dc2626"}.get(risk_level, "#6b7280")
         risk_bg = {"low": "#f0fdf4", "medium": "#fffbeb", "high": "#fef2f2"}.get(risk_level, "#f9fafb")
@@ -753,7 +786,7 @@ def page_goods_auctions():
                     )
 
             # Current bid
-            st.metric("Current Bid", r["Current Bid"])
+            st.metric("Current Bid", f"€{r['Current Bid']:,.0f}" if r["Current Bid"] else "N/A")
 
             # Retail Lookup row
             if has_retail:
@@ -763,7 +796,7 @@ def page_goods_auctions():
                     unsafe_allow_html=True,
                 )
                 c1, c2, c3 = st.columns(3)
-                c1.metric("Retail Value", r["Est. Value"])
+                c1.metric("Retail Value", f"€{r['Est. Value']:,.0f}" if r["Est. Value"] else "N/A")
                 c2.metric("Max Bid", f"€{max_bid:,.0f}" if max_bid else "N/A")
                 c3.metric(
                     "Savings",
@@ -781,8 +814,8 @@ def page_goods_auctions():
                     unsafe_allow_html=True,
                 )
                 c1, c2, c3 = st.columns(3)
-                c1.metric("AI Market Value", r["AI Value"] if r["AI Value"] else "N/A")
-                c2.metric("AI Max Bid", r["AI Max Bid"] if r["AI Max Bid"] else "N/A")
+                c1.metric("AI Market Value", f"€{r['AI Value']:,.0f}" if r["AI Value"] else "N/A")
+                c2.metric("AI Max Bid", f"€{r['AI Max Bid']:,.0f}" if r["AI Max Bid"] else "N/A")
                 c3.metric(
                     "AI Savings",
                     f"€{ai_savings:,.0f}" if ai_savings > 0 else "N/A",
@@ -837,6 +870,12 @@ def page_goods_auctions():
             column_config={
                 **link_config,
                 "Fav": st.column_config.CheckboxColumn("Fav", default=False),
+                "Current Bid": st.column_config.NumberColumn("Current Bid", format="€%d"),
+                "Est. Value": st.column_config.NumberColumn("Est. Value", format="€%d"),
+                "Max Bid": st.column_config.NumberColumn("Max Bid", format="€%d"),
+                "AI Value": st.column_config.NumberColumn("AI Value", format="€%d"),
+                "AI Max Bid": st.column_config.NumberColumn("AI Max Bid", format="€%d"),
+                "Rating": st.column_config.NumberColumn("Rating", format="%d/10"),
             },
             disabled=[c for c in display_cols if c != "Fav"],
             key="goods_fav_editor",

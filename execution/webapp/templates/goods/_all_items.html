@@ -1,0 +1,101 @@
+<!-- Goods All Items data table with sortable columns -->
+{% if rows %}
+<script>
+    window.__goodsRows = {{ rows | tojson }};
+</script>
+<div x-data="{
+    sortCol: '',
+    sortAsc: true,
+    rows: window.__goodsRows,
+    get sortedRows() {
+        if (!this.sortCol) return this.rows;
+        const col = this.sortCol;
+        const asc = this.sortAsc;
+        return [...this.rows].sort((a, b) => {
+            let va = a[col] ?? '', vb = b[col] ?? '';
+            if (typeof va === 'string') va = va.toLowerCase();
+            if (typeof vb === 'string') vb = vb.toLowerCase();
+            return va < vb ? (asc ? -1 : 1) : va > vb ? (asc ? 1 : -1) : 0;
+        });
+    },
+    toggle(col) {
+        if (this.sortCol === col) this.sortAsc = !this.sortAsc;
+        else { this.sortCol = col; this.sortAsc = true; }
+    },
+    arrow(col) {
+        if (this.sortCol !== col) return '';
+        return this.sortAsc ? ' ▲' : ' ▼';
+    }
+}" class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-200">
+                <tr>
+                    <th class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Fav</th>
+                    <th @click="toggle('id')" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">ID<span x-text="arrow('id')" class="text-blue-600"></span></th>
+                    <th @click="toggle('title')" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Title<span x-text="arrow('title')" class="text-blue-600"></span></th>
+                    <th @click="toggle('category')" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Category<span x-text="arrow('category')" class="text-blue-600"></span></th>
+                    <th @click="toggle('brand')" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Brand<span x-text="arrow('brand')" class="text-blue-600"></span></th>
+                    <th @click="toggle('qty')" class="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Qty<span x-text="arrow('qty')" class="text-blue-600"></span></th>
+                    <th @click="toggle('bid')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Bid<span x-text="arrow('bid')" class="text-blue-600"></span></th>
+                    <th @click="toggle('est_value')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Est.<span x-text="arrow('est_value')" class="text-blue-600"></span></th>
+                    <th @click="toggle('max_bid')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Max Bid<span x-text="arrow('max_bid')" class="text-blue-600"></span></th>
+                    <th @click="toggle('ai_value')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">AI Value<span x-text="arrow('ai_value')" class="text-blue-600"></span></th>
+                    <th @click="toggle('ai_max_bid')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">AI Max<span x-text="arrow('ai_max_bid')" class="text-blue-600"></span></th>
+                    <th @click="toggle('ai_risk_level')" class="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Risk<span x-text="arrow('ai_risk_level')" class="text-blue-600"></span></th>
+                    <th @click="toggle('rating')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Rating<span x-text="arrow('rating')" class="text-blue-600"></span></th>
+                    <th class="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase">Link</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                <template x-for="row in sortedRows" :key="row.id">
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-3 py-2.5">
+                            <input type="checkbox" :checked="row.fav"
+                                   class="w-4 h-4 accent-amber-500 cursor-pointer"
+                                   :hx-post="'/api/goods/favorite/' + row.id"
+                                   hx-swap="outerHTML" />
+                        </td>
+                        <td class="px-3 py-2.5 text-gray-500" x-text="row.id"></td>
+                        <td class="px-3 py-2.5 font-medium text-gray-900 max-w-xs truncate" x-text="row.title"></td>
+                        <td class="px-3 py-2.5 text-gray-700" x-text="row.category"></td>
+                        <td class="px-3 py-2.5 text-gray-700" x-text="row.brand"></td>
+                        <td class="px-3 py-2.5 text-center text-gray-700" x-text="row.qty"></td>
+                        <td class="px-3 py-2.5 text-right font-medium text-gray-900" x-text="row.bid ? '€' + row.bid.toLocaleString('nl-NL', {maximumFractionDigits: 0}) : ''"></td>
+                        <td class="px-3 py-2.5 text-right text-gray-700" x-text="row.est_value ? '€' + row.est_value.toLocaleString('nl-NL', {maximumFractionDigits: 0}) : ''"></td>
+                        <td class="px-3 py-2.5 text-right text-gray-700" x-text="row.max_bid ? '€' + row.max_bid.toLocaleString('nl-NL', {maximumFractionDigits: 0}) : ''"></td>
+                        <td class="px-3 py-2.5 text-right text-gray-700" x-text="row.ai_value ? '€' + row.ai_value.toLocaleString('nl-NL', {maximumFractionDigits: 0}) : ''"></td>
+                        <td class="px-3 py-2.5 text-right text-gray-700" x-text="row.ai_max_bid ? '€' + row.ai_max_bid.toLocaleString('nl-NL', {maximumFractionDigits: 0}) : ''"></td>
+                        <td class="px-3 py-2.5 text-center">
+                            <template x-if="row.ai_risk_level">
+                                <span class="px-2 py-0.5 rounded-full text-xs font-medium"
+                                      :class="{
+                                          'text-green-700 bg-green-100': row.ai_risk_level === 'low',
+                                          'text-amber-700 bg-amber-100': row.ai_risk_level === 'medium',
+                                          'text-red-700 bg-red-100': row.ai_risk_level === 'high'
+                                      }"
+                                      x-text="row.ai_risk_level.charAt(0).toUpperCase() + row.ai_risk_level.slice(1)">
+                                </span>
+                            </template>
+                        </td>
+                        <td class="px-3 py-2.5 text-right">
+                            <template x-if="row.rating">
+                                <span class="font-medium text-gray-700" x-text="row.rating + '/10'"></span>
+                            </template>
+                        </td>
+                        <td class="px-3 py-2.5 text-center">
+                            <template x-if="row.url">
+                                <a :href="row.url" target="_blank" class="text-blue-600 hover:text-blue-800 text-xs">View</a>
+                            </template>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center text-gray-500 text-sm">
+    No items match the current filters.
+</div>
+{% endif %}

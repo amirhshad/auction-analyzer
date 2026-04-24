@@ -1,0 +1,7 @@
+<!-- Trigger a toast notification from server response -->
+<!-- Usage: include in an HTMX response fragment -->
+<script>
+    window.dispatchEvent(new CustomEvent('toast', {
+        detail: { message: '{{ message }}', type: '{{ type|default("success") }}' }
+    }));
+</script>

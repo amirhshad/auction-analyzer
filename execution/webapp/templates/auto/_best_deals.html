@@ -1,0 +1,12 @@
+<!-- Best Deals tab content -->
+{% if deal_rows %}
+<div class="space-y-3">
+    {% for row in deal_rows %}
+    {% include "auto/_vehicle_card.html" %}
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center text-gray-500 text-sm">
+    No deals scored yet. Run market price lookup first.
+</div>
+{% endif %}

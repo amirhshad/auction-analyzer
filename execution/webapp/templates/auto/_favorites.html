@@ -1,0 +1,12 @@
+<!-- Favorites tab content -->
+{% if fav_rows %}
+<div class="space-y-3">
+    {% for row in fav_rows %}
+    {% include "auto/_vehicle_card.html" %}
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center text-gray-500 text-sm">
+    No favorites yet. Mark vehicles as favorite in the All Vehicles tab.
+</div>
+{% endif %}
