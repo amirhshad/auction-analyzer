@@ -1,4 +1,4 @@
-"""Background task runner with SSE progress streaming."""
+"""Background task runner with SSE progress streaming and cancellation."""
 import asyncio
 import json
 import uuid
@@ -7,14 +7,20 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 
+class TaskCancelled(Exception):
+    """Raised when a task is cancelled by the user."""
+    pass
+
+
 @dataclass
 class TaskState:
     task_id: str
-    status: str = "pending"  # pending | running | done | error
+    status: str = "pending"  # pending | running | done | error | cancelled
     progress: int = 0
     message: str = ""
     result: Any = None
     error: Optional[str] = None
+    cancelled: bool = False
 
 
 class TaskManager:
@@ -33,22 +39,42 @@ class TaskManager:
             state.status = "running"
             try:
                 result = fn(*args, **kwargs)
-                state.result = result
-                state.status = "done"
-                state.progress = 100
-                state.message = "Done!"
+                if state.cancelled:
+                    state.status = "cancelled"
+                    state.message = "Stopped by user."
+                else:
+                    state.result = result
+                    state.status = "done"
+                    state.progress = 100
+                    state.message = "Done!"
+            except TaskCancelled:
+                state.status = "cancelled"
+                state.message = "Stopped by user."
             except Exception as e:
-                state.error = str(e)
-                state.status = "error"
-                state.message = f"Error: {e}"
+                if state.cancelled:
+                    state.status = "cancelled"
+                    state.message = "Stopped by user."
+                else:
+                    state.error = str(e)
+                    state.status = "error"
+                    state.message = f"Error: {e}"
 
         self._executor.submit(_wrapper)
         return state
+
+    def cancel(self, task_id: str) -> bool:
+        state = self._tasks.get(task_id)
+        if state and state.status in ("pending", "running"):
+            state.cancelled = True
+            return True
+        return False
 
     def make_progress_callback(self, task_id: str) -> Callable:
         state = self._tasks[task_id]
 
         def callback(current, total, message):
+            if state.cancelled:
+                raise TaskCancelled("Stopped by user")
             if total > 0:
                 state.progress = min(int((current / total) * 90) + 10, 99)
             else:

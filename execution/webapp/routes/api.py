@@ -58,6 +58,19 @@ def delete_goods_auction(auction_name: str, repo=Depends(get_repo)):
 
 
 # ---------------------------------------------------------------------------
+# Task: Cancel
+# ---------------------------------------------------------------------------
+@router.post("/tasks/{task_id}/cancel")
+def cancel_task(task_id: str):
+    tm = get_task_manager()
+    cancelled = tm.cancel(task_id)
+    return Response(
+        content="Stopping..." if cancelled else "Task not found",
+        media_type="text/plain",
+    )
+
+
+# ---------------------------------------------------------------------------
 # SSE Task Stream
 # ---------------------------------------------------------------------------
 @router.get("/tasks/{task_id}/stream")

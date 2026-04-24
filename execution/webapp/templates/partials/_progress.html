@@ -1,9 +1,18 @@
-<!-- SSE progress bar: expects task_id variable -->
+<!-- SSE progress bar with stop button: expects task_id variable -->
 <div id="progress-area-{{ task_id }}" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-3">
-    <div class="w-full bg-blue-200 rounded-full h-2.5">
-        <div id="pbar-{{ task_id }}" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 5%"></div>
+    <div class="flex items-center gap-3">
+        <div class="flex-1">
+            <div class="w-full bg-blue-200 rounded-full h-2.5">
+                <div id="pbar-{{ task_id }}" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 5%"></div>
+            </div>
+            <p id="pmsg-{{ task_id }}" class="text-sm text-blue-700 mt-2">Starting...</p>
+        </div>
+        <button id="pstop-{{ task_id }}"
+                onclick="document.getElementById('pstop-{{ task_id }}').disabled = true; document.getElementById('pstop-{{ task_id }}').textContent = 'Stopping...'; fetch('/api/tasks/{{ task_id }}/cancel', { method: 'POST' });"
+                class="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition flex-shrink-0">
+            Stop
+        </button>
     </div>
-    <p id="pmsg-{{ task_id }}" class="text-sm text-blue-700 mt-2">Starting...</p>
 </div>
 
 <script>
@@ -11,7 +20,13 @@
     const taskId = '{{ task_id }}';
     const bar = document.getElementById('pbar-' + taskId);
     const msg = document.getElementById('pmsg-' + taskId);
+    const stopBtn = document.getElementById('pstop-' + taskId);
     const evtSource = new EventSource('/api/tasks/' + taskId + '/stream');
+
+    function finish() {
+        evtSource.close();
+        if (stopBtn) stopBtn.style.display = 'none';
+    }
 
     evtSource.onmessage = function(event) {
         try {
@@ -20,12 +35,21 @@
             if (msg) msg.textContent = data.message || '';
 
             if (data.status === 'done') {
-                evtSource.close();
+                finish();
                 if (bar) { bar.classList.remove('bg-blue-600'); bar.classList.add('bg-green-600'); }
                 if (msg) msg.textContent = data.message || 'Done!';
                 setTimeout(() => window.location.reload(), 800);
+            } else if (data.status === 'cancelled') {
+                finish();
+                if (bar) { bar.classList.remove('bg-blue-600'); bar.classList.add('bg-amber-500'); }
+                if (msg) {
+                    msg.textContent = 'Stopped by user.';
+                    msg.classList.remove('text-blue-700');
+                    msg.classList.add('text-amber-700');
+                }
+                setTimeout(() => window.location.reload(), 1500);
             } else if (data.status === 'error') {
-                evtSource.close();
+                finish();
                 if (bar) { bar.classList.remove('bg-blue-600'); bar.classList.add('bg-red-600'); }
                 if (msg) {
                     msg.textContent = data.error || 'An error occurred';
@@ -39,7 +63,7 @@
     };
 
     evtSource.onerror = function() {
-        evtSource.close();
+        finish();
         if (msg) {
             msg.textContent = 'Connection lost. Refresh the page to check status.';
             msg.classList.remove('text-blue-700');
