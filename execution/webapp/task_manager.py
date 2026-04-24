@@ -20,6 +20,7 @@ class TaskState:
     message: str = ""
     result: Any = None
     error: Optional[str] = None
+    error_detail: Optional[str] = None
     cancelled: bool = False
 
 
@@ -55,7 +56,10 @@ class TaskManager:
                     state.status = "cancelled"
                     state.message = "Stopped by user."
                 else:
+                    import traceback
+                    tb = traceback.format_exc()
                     state.error = str(e)
+                    state.error_detail = tb
                     state.status = "error"
                     state.message = f"Error: {e}"
 
@@ -105,6 +109,8 @@ class TaskManager:
         }
         if state.error:
             payload["error"] = state.error
+        if state.error_detail:
+            payload["error_detail"] = state.error_detail
         yield f"data: {json.dumps(payload)}\n\n"
 
     def cleanup(self, task_id: str):

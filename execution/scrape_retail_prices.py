@@ -390,6 +390,7 @@ def lookup_goods_prices(item_ids: Optional[list[int]] = None,
 
         except Exception as e:
             print(f"Error during price lookup: {e}", file=sys.stderr)
+            raise
         finally:
             browser.close()
 

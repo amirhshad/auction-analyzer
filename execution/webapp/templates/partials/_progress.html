@@ -8,10 +8,22 @@
             <p id="pmsg-{{ task_id }}" class="text-sm text-blue-700 mt-2">Starting...</p>
         </div>
         <button id="pstop-{{ task_id }}"
-                onclick="document.getElementById('pstop-{{ task_id }}').disabled = true; document.getElementById('pstop-{{ task_id }}').textContent = 'Stopping...'; fetch('/api/tasks/{{ task_id }}/cancel', { method: 'POST' });"
+                onclick="this.disabled = true; this.textContent = 'Stopping...'; fetch('/api/tasks/{{ task_id }}/cancel', { method: 'POST' });"
                 class="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition flex-shrink-0">
             Stop
         </button>
+    </div>
+    <!-- Error detail box (hidden by default) -->
+    <div id="perror-{{ task_id }}" class="hidden mt-3 bg-red-50 border border-red-200 rounded-lg p-3 text-xs">
+        <div class="flex items-start justify-between gap-2">
+            <div class="flex-1 min-w-0">
+                <p class="font-semibold text-red-800 mb-1" id="perror-title-{{ task_id }}"></p>
+                <pre id="perror-detail-{{ task_id }}" class="text-red-700 whitespace-pre-wrap break-words font-mono text-[11px] max-h-48 overflow-y-auto"></pre>
+            </div>
+            <button onclick="this.closest('[id^=perror-]').classList.add('hidden')" class="text-red-400 hover:text-red-600 flex-shrink-0 p-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
     </div>
 </div>
 
@@ -21,6 +33,10 @@
     const bar = document.getElementById('pbar-' + taskId);
     const msg = document.getElementById('pmsg-' + taskId);
     const stopBtn = document.getElementById('pstop-' + taskId);
+    const errorBox = document.getElementById('perror-' + taskId);
+    const errorTitle = document.getElementById('perror-title-' + taskId);
+    const errorDetail = document.getElementById('perror-detail-' + taskId);
+    const container = document.getElementById('progress-area-' + taskId);
     const evtSource = new EventSource('/api/tasks/' + taskId + '/stream');
 
     function finish() {
@@ -36,25 +52,30 @@
 
             if (data.status === 'done') {
                 finish();
+                container.className = 'bg-green-50 border border-green-200 rounded-lg p-4 mt-3';
                 if (bar) { bar.classList.remove('bg-blue-600'); bar.classList.add('bg-green-600'); }
-                if (msg) msg.textContent = data.message || 'Done!';
+                if (msg) { msg.textContent = data.message || 'Done!'; msg.className = 'text-sm text-green-700 mt-2'; }
                 setTimeout(() => window.location.reload(), 800);
             } else if (data.status === 'cancelled') {
                 finish();
+                container.className = 'bg-amber-50 border border-amber-200 rounded-lg p-4 mt-3';
                 if (bar) { bar.classList.remove('bg-blue-600'); bar.classList.add('bg-amber-500'); }
-                if (msg) {
-                    msg.textContent = 'Stopped by user.';
-                    msg.classList.remove('text-blue-700');
-                    msg.classList.add('text-amber-700');
-                }
+                if (msg) { msg.textContent = 'Stopped by user.'; msg.className = 'text-sm text-amber-700 mt-2'; }
                 setTimeout(() => window.location.reload(), 1500);
             } else if (data.status === 'error') {
                 finish();
+                container.className = 'bg-red-50 border border-red-200 rounded-lg p-4 mt-3';
                 if (bar) { bar.classList.remove('bg-blue-600'); bar.classList.add('bg-red-600'); }
-                if (msg) {
-                    msg.textContent = data.error || 'An error occurred';
-                    msg.classList.remove('text-blue-700');
-                    msg.classList.add('text-red-700');
+                if (msg) { msg.textContent = data.error || 'An error occurred'; msg.className = 'text-sm text-red-700 mt-2 font-medium'; }
+                // Show error detail
+                if (errorBox && (data.error || data.error_detail)) {
+                    errorBox.classList.remove('hidden');
+                    if (errorTitle) errorTitle.textContent = data.error || 'Unknown error';
+                    if (errorDetail && data.error_detail) {
+                        errorDetail.textContent = data.error_detail;
+                    } else if (errorDetail) {
+                        errorDetail.textContent = data.error || '';
+                    }
                 }
             }
         } catch(e) {
@@ -64,11 +85,8 @@
 
     evtSource.onerror = function() {
         finish();
-        if (msg) {
-            msg.textContent = 'Connection lost. Refresh the page to check status.';
-            msg.classList.remove('text-blue-700');
-            msg.classList.add('text-amber-700');
-        }
+        container.className = 'bg-amber-50 border border-amber-200 rounded-lg p-4 mt-3';
+        if (msg) { msg.textContent = 'Connection lost. Refresh the page to check status.'; msg.className = 'text-sm text-amber-700 mt-2'; }
     };
 })();
 </script>
