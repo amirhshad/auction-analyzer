@@ -91,7 +91,7 @@ def run(url: str, progress_callback=None) -> list[dict]:
 
     print(f"Scraping OnlineVeilingmeester auction {auction_id} via API...")
 
-    client = httpx.Client(headers=HEADERS, timeout=30.0)
+    client = httpx.Client(headers=HEADERS, timeout=30.0, follow_redirects=True)
 
     try:
         # Step 1: Get list of lot numbers
@@ -241,6 +241,7 @@ def run(url: str, progress_callback=None) -> list[dict]:
 
     except Exception as e:
         print(f"Error during scraping: {e}", file=sys.stderr)
+        raise
     finally:
         client.close()
 
