@@ -224,6 +224,87 @@ class GoodsPriceCache(Base):
     looked_up_at = Column(DateTime, default=_utcnow)
 
 
+class Bike(Base):
+    __tablename__ = "bikes"
+    __table_args__ = (UniqueConstraint("external_id", "source", name="uq_bike_ext"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    external_id = Column(String, nullable=False)
+    source = Column(String, nullable=False)
+    url = Column(String)
+
+    bike_type = Column(String)
+    brand = Column(String)
+    model = Column(String)
+    frame_size = Column(String)
+    color = Column(String)
+    condition = Column(String)
+    components = Column(Text)
+    notes = Column(Text)
+    image_urls_json = Column(Text)
+
+    auction_name = Column(String)
+    current_bid = Column(Float)
+    bid_count = Column(Integer, default=0)
+    end_time = Column(DateTime)
+    is_favorite = Column(Integer, default=0)
+
+    ai_estimated_value = Column(Float)
+    ai_recommended_max_bid = Column(Float)
+    ai_risk_level = Column(String)
+    ai_explanation = Column(Text)
+    ai_evaluated_at = Column(DateTime)
+    ai_eval_hash = Column(String)
+
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    image_analyses = relationship("BikeImageAnalysis", back_populates="bike", cascade="all, delete-orphan")
+
+    @property
+    def image_urls(self) -> list[str]:
+        if self.image_urls_json:
+            return json.loads(self.image_urls_json)
+        return []
+
+    @image_urls.setter
+    def image_urls(self, urls: list[str]):
+        self.image_urls_json = json.dumps(urls)
+
+
+class BikeMarketPrice(Base):
+    __tablename__ = "bike_market_prices"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    brand = Column(String, nullable=False)
+    model = Column(String)
+    bike_type = Column(String)
+    asking_price = Column(Float, nullable=False)
+    source = Column(String, default="marktplaats")
+    source_url = Column(String)
+    scraped_at = Column(DateTime, default=_utcnow)
+
+
+class BikeImageAnalysis(Base):
+    __tablename__ = "bike_image_analyses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    bike_id = Column(Integer, ForeignKey("bikes.id"), nullable=False)
+    image_url = Column(String, nullable=False)
+    image_type = Column(String)
+
+    condition_score = Column(Float)
+    overall_condition = Column(String)
+    confidence = Column(Float)
+    damage_detected = Column(Text)
+    assessment_details = Column(Text)
+    raw_response = Column(Text)
+    model_used = Column(String)
+    analyzed_at = Column(DateTime, default=_utcnow)
+
+    bike = relationship("Bike", back_populates="image_analyses")
+
+
 class ImageAnalysis(Base):
     __tablename__ = "image_analyses"
 
