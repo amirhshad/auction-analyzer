@@ -75,7 +75,8 @@ def test_upsert_bike_updates_existing():
     repo.upsert_bike(external_id="1", source="ovm", current_bid=500.0)
     updated = repo.upsert_bike(external_id="1", source="ovm", current_bid=750.0)
     assert updated.current_bid == 750.0
-    assert repo.session.query(__import__('execution.db_models', fromlist=['Bike']).Bike).count() == 1
+    from execution.db_models import Bike as BikeModel
+    assert repo.session.query(BikeModel).count() == 1
 
 
 def test_list_bikes_returns_all():

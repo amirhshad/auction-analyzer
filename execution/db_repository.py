@@ -404,6 +404,8 @@ class Repository:
         return mp
 
     def clear_bike_market_prices(self, brand: str, model: Optional[str] = None) -> int:
+        if not brand or not brand.strip():
+            return 0
         q = self.session.query(BikeMarketPrice).filter(
             BikeMarketPrice.brand.ilike(f"%{brand}%")
         )
