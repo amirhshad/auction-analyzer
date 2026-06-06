@@ -7,6 +7,7 @@ from execution.db_models import (
     get_session, init_db,
     Vehicle, Auction, PriceHistory, MarketPrice,
     GoodsItem, GoodsPriceCache, ImageAnalysis,
+    Bike, BikeMarketPrice, BikeImageAnalysis,
 )
 
 
@@ -321,5 +322,121 @@ class Repository:
             self.session.query(ImageAnalysis)
             .filter(ImageAnalysis.vehicle_id == vehicle_id)
             .order_by(ImageAnalysis.analyzed_at)
+            .all()
+        )
+
+    # ------------------------------------------------------------------
+    # Bike
+    # ------------------------------------------------------------------
+    def upsert_bike(self, external_id: str, source: str, **kwargs) -> Bike:
+        bike = self.session.query(Bike).filter(
+            and_(Bike.external_id == external_id, Bike.source == source)
+        ).first()
+        if bike:
+            for key, value in kwargs.items():
+                if value is not None:
+                    setattr(bike, key, value)
+            bike.updated_at = datetime.now(timezone.utc)
+        else:
+            bike = Bike(external_id=external_id, source=source, **kwargs)
+            self.session.add(bike)
+        self.session.commit()
+        self.session.refresh(bike)
+        return bike
+
+    def get_bike(self, bike_id: int) -> Optional[Bike]:
+        return self.session.query(Bike).get(bike_id)
+
+    def list_bikes(self, limit: int = 200, auction_name: Optional[str] = None,
+                   bike_type: Optional[str] = None, brand: Optional[str] = None) -> list[Bike]:
+        q = self.session.query(Bike)
+        if auction_name:
+            q = q.filter(Bike.auction_name == auction_name)
+        if bike_type:
+            q = q.filter(Bike.bike_type.ilike(f"%{bike_type}%"))
+        if brand:
+            q = q.filter(Bike.brand.ilike(f"%{brand}%"))
+        return q.order_by(Bike.created_at.desc()).limit(limit).all()
+
+    def toggle_bike_favorite(self, bike_id: int) -> bool:
+        bike = self.session.query(Bike).get(bike_id)
+        if bike:
+            bike.is_favorite = 0 if bike.is_favorite else 1
+            self.session.commit()
+            return bool(bike.is_favorite)
+        return False
+
+    def delete_bike(self, bike_id: int) -> bool:
+        bike = self.session.query(Bike).get(bike_id)
+        if bike:
+            self.session.delete(bike)
+            self.session.commit()
+            return True
+        return False
+
+    def get_bike_auction_names(self) -> list[str]:
+        rows = self.session.query(Bike.auction_name).distinct().all()
+        return [r[0] for r in rows if r[0]]
+
+    def delete_bike_auction(self, auction_name: str) -> int:
+        bikes = self.session.query(Bike).filter(Bike.auction_name == auction_name).all()
+        count = len(bikes)
+        for b in bikes:
+            self.session.delete(b)
+        self.session.commit()
+        return count
+
+    def update_bike_ai_eval(self, bike_id: int, **kwargs):
+        bike = self.session.query(Bike).get(bike_id)
+        if bike:
+            for k, v in kwargs.items():
+                setattr(bike, k, v)
+            self.session.commit()
+
+    # ------------------------------------------------------------------
+    # Bike Market Price
+    # ------------------------------------------------------------------
+    def upsert_bike_market_price(self, brand: str, asking_price: float, **kwargs) -> BikeMarketPrice:
+        mp = BikeMarketPrice(brand=brand, asking_price=asking_price, **kwargs)
+        self.session.add(mp)
+        self.session.commit()
+        self.session.refresh(mp)
+        return mp
+
+    def clear_bike_market_prices(self, brand: str, model: Optional[str] = None) -> int:
+        q = self.session.query(BikeMarketPrice).filter(
+            BikeMarketPrice.brand.ilike(f"%{brand}%")
+        )
+        if model:
+            q = q.filter(BikeMarketPrice.model.ilike(f"%{model}%"))
+        deleted = q.delete(synchronize_session="fetch")
+        self.session.commit()
+        return deleted
+
+    def get_bike_market_prices(self, brand: str, model: Optional[str] = None) -> list[BikeMarketPrice]:
+        if not brand or not brand.strip():
+            return []
+        q = self.session.query(BikeMarketPrice).filter(
+            BikeMarketPrice.brand.ilike(f"%{brand}%")
+        )
+        if model:
+            q = q.filter(BikeMarketPrice.model.ilike(f"%{model}%"))
+        return q.all()
+
+    # ------------------------------------------------------------------
+    # Bike Image Analysis
+    # ------------------------------------------------------------------
+    def save_bike_image_analysis(self, bike_id: int, image_url: str, **kwargs) -> BikeImageAnalysis:
+        analysis = BikeImageAnalysis(bike_id=bike_id, image_url=image_url, **kwargs)
+        self.session.add(analysis)
+        self.session.commit()
+        self.session.refresh(analysis)
+        return analysis
+
+    def get_bike_image_analyses(self, bike_id: int) -> list[BikeImageAnalysis]:
+        return (
+            self.session.query(BikeImageAnalysis)
+            .filter(BikeImageAnalysis.bike_id == bike_id)
+            .order_by(BikeImageAnalysis.analyzed_at)
             .all()
         )
