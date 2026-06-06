@@ -164,8 +164,8 @@ def run(url: str, progress_callback=None) -> list[dict]:
         raise
     finally:
         client.close()
+        repo.close()
 
-    repo.close()
     print(f"\nDone. Scraped {len(results)} bikes.")
     return results
 

@@ -181,4 +181,5 @@ def test_extract_bike_fields_fallback_brand():
     }
     fields = _extract_bike_fields(kavel_data)
     assert fields["bike_type"] == "Fatbike"
+    assert fields["brand"] == "C80"
     assert fields["model"] == "C80"
