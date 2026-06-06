@@ -64,7 +64,7 @@ def _extract_prices_from_jsonld(html: str) -> list[float]:
         try:
             data = json.loads(block)
             prices.extend(_prices_from_obj(data))
-        except (json.JSONDecodeError, TypeError):
+        except (json.JSONDecodeError, TypeError, AttributeError):
             continue
     return prices
 
@@ -78,7 +78,11 @@ def _prices_from_obj(obj) -> list[float]:
     elif isinstance(obj, dict):
         # Direct offer
         if obj.get("@type") in ("Offer", "Product"):
-            price = obj.get("price") or (obj.get("offers") or {}).get("price")
+            price = obj.get("price")
+            if price is None:
+                offers = obj.get("offers")
+                if isinstance(offers, dict):
+                    price = offers.get("price")
             if price is not None:
                 p = _parse_dutch_price(str(price))
                 if p:
