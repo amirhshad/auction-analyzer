@@ -183,3 +183,45 @@ def test_extract_bike_fields_fallback_brand():
     assert fields["bike_type"] == "Fatbike"
     assert fields["brand"] == "C80"
     assert fields["model"] == "C80"
+
+
+from execution.scrape_marktplaats import _parse_dutch_price, _build_search_url, _extract_prices_from_html
+
+
+def test_parse_dutch_price_dot_thousands():
+    assert _parse_dutch_price("€1.999,-") == 1999.0
+
+
+def test_parse_dutch_price_comma_decimal():
+    assert _parse_dutch_price("€2.600,00") == 2600.0
+
+
+def test_parse_dutch_price_simple():
+    assert _parse_dutch_price("€850") == 850.0
+
+
+def test_parse_dutch_price_nbsp():
+    assert _parse_dutch_price("€\xa02.500") == 2500.0
+
+
+def test_parse_dutch_price_out_of_range():
+    assert _parse_dutch_price("€5") is None   # too cheap for a bike
+    assert _parse_dutch_price("€500000") is None  # too expensive
+
+
+def test_build_search_url_with_model():
+    url = _build_search_url(brand="Cannondale", model="SystemSix")
+    assert "cannondale" in url.lower()
+    assert "systemsix" in url.lower() or "system" in url.lower()
+
+
+def test_build_search_url_brand_only():
+    url = _build_search_url(brand="Trek", model=None)
+    assert "trek" in url.lower()
+
+
+def test_extract_prices_from_html_finds_prices():
+    html = '<span class="price">€1.999,-</span><span class="price">€850</span>'
+    prices = _extract_prices_from_html(html)
+    assert 1999.0 in prices
+    assert 850.0 in prices
