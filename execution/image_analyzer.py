@@ -93,8 +93,13 @@ def analyze_single_image(client, image_url: str) -> Optional[dict]:
         return None
 
 
-def run(vehicle_id: int, max_images: int = 5) -> Optional[AnalysisResult]:
-    """Analyze all images for a vehicle."""
+def run(vehicle_id: Optional[int] = None, max_images: int = 5,
+        bike_id: Optional[int] = None) -> Optional[AnalysisResult]:
+    """Analyze images for a vehicle or bike."""
+    if not vehicle_id and not bike_id:
+        print("Error: provide --vehicle-id or --bike-id", file=sys.stderr)
+        return None
+
     if not OPENAI_API_KEY:
         print("Error: OPENAI_API_KEY not set in .env", file=sys.stderr)
         return None
@@ -106,19 +111,34 @@ def run(vehicle_id: int, max_images: int = 5) -> Optional[AnalysisResult]:
         return None
 
     repo = Repository()
-    vehicle = repo.get_vehicle(vehicle_id)
-    if not vehicle:
-        print(f"Vehicle {vehicle_id} not found", file=sys.stderr)
-        repo.close()
-        return None
 
-    image_urls = vehicle.image_urls[:max_images]
+    if bike_id:
+        entity = repo.get_bike(bike_id)
+        if not entity:
+            print(f"Bike {bike_id} not found", file=sys.stderr)
+            repo.close()
+            return None
+        image_urls = entity.image_urls[:max_images]
+        entity_label = f"Bike {bike_id} ({entity.brand} {entity.model})"
+        def save_fn(url, **kwargs):
+            repo.save_bike_image_analysis(bike_id=bike_id, image_url=url, **kwargs)
+    else:
+        entity = repo.get_vehicle(vehicle_id)
+        if not entity:
+            print(f"Vehicle {vehicle_id} not found", file=sys.stderr)
+            repo.close()
+            return None
+        image_urls = entity.image_urls[:max_images]
+        entity_label = f"Vehicle {vehicle_id} ({entity.make} {entity.model})"
+        def save_fn(url, **kwargs):
+            repo.save_image_analysis(vehicle_id=vehicle_id, image_url=url, **kwargs)
+
     if not image_urls:
-        print(f"Vehicle {vehicle_id} has no images", file=sys.stderr)
+        print(f"{entity_label} has no images", file=sys.stderr)
         repo.close()
         return None
 
-    print(f"Analyzing {len(image_urls)} images for vehicle {vehicle_id} ({vehicle.make} {vehicle.model})")
+    print(f"Analyzing {len(image_urls)} images for {entity_label}")
 
     client = OpenAI(api_key=OPENAI_API_KEY)
     image_results = []
@@ -131,10 +151,8 @@ def run(vehicle_id: int, max_images: int = 5) -> Optional[AnalysisResult]:
         if not result:
             continue
 
-        # Save to DB
-        repo.save_image_analysis(
-            vehicle_id=vehicle_id,
-            image_url=url,
+        save_fn(
+            url,
             image_type=result.get("image_type", "other"),
             condition_score=result.get("condition_score", 5),
             overall_condition=result.get("overall_condition", "unknown"),
@@ -155,33 +173,17 @@ def run(vehicle_id: int, max_images: int = 5) -> Optional[AnalysisResult]:
     repo.close()
 
     if not scores:
-        return AnalysisResult(
-            overall_score=0,
-            images_analyzed=0,
-            damages=[],
-            repair_cost_estimate=None,
-            value_adjustment=None,
-            image_results=[],
-        )
+        return AnalysisResult(overall_score=0, images_analyzed=0, damages=[],
+                               repair_cost_estimate=None, value_adjustment=None, image_results=[])
 
     overall_score = sum(scores) / len(scores)
-
-    # Estimate repair costs based on damages
-    repair_cost = None
-    value_adjustment = None
-    if all_damages:
-        # Simple heuristic: ~€200 per damage item
-        repair_cost = len(set(all_damages)) * 200
-        # Value adjustment: negative of repair costs
-        value_adjustment = -repair_cost
-
+    repair_cost = len(set(all_damages)) * 200 if all_damages else None
+    value_adjustment = -repair_cost if repair_cost else None
     unique_damages = list(set(all_damages))
 
     print(f"\nOverall condition score: {overall_score:.1f}/10")
     if unique_damages:
         print(f"Damages found: {', '.join(unique_damages)}")
-    if repair_cost:
-        print(f"Estimated repair cost: €{repair_cost:,.0f}")
 
     return AnalysisResult(
         overall_score=round(overall_score, 1),
@@ -194,12 +196,14 @@ def run(vehicle_id: int, max_images: int = 5) -> Optional[AnalysisResult]:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Analyze vehicle images with GPT-4 Vision")
-    parser.add_argument("--vehicle-id", type=int, required=True, help="Vehicle ID")
+    parser = argparse.ArgumentParser(description="Analyze vehicle or bike images with GPT-4 Vision")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--vehicle-id", type=int, help="Vehicle ID")
+    group.add_argument("--bike-id", type=int, help="Bike ID")
     parser.add_argument("--max-images", type=int, default=5, help="Max images to analyze")
     args = parser.parse_args()
 
-    result = run(args.vehicle_id, args.max_images)
+    result = run(vehicle_id=args.vehicle_id, bike_id=args.bike_id, max_images=args.max_images)
     if result:
         print(json.dumps(asdict(result), indent=2))
     else:

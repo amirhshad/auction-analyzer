@@ -272,3 +272,14 @@ def test_format_prompt_includes_market_prices():
     mp = BikeMarketPrice(brand="Trek", model="Domane", asking_price=1200.0)
     prompt = _format_prompt(b, market_prices=[mp])
     assert "1,200" in prompt
+
+
+import inspect
+from execution import image_analyzer
+
+
+def test_image_analyzer_accepts_bike_id():
+    """run() accepts optional bike_id parameter."""
+    sig = inspect.signature(image_analyzer.run)
+    assert "bike_id" in sig.parameters
+    assert sig.parameters["bike_id"].default is None
