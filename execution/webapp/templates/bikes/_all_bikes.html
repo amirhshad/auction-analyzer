@@ -1,0 +1,103 @@
+<!-- Bikes All Bikes sortable table -->
+{% if rows %}
+<script>
+    window.__bikeRows = {{ rows | tojson }};
+</script>
+<div x-data="{
+    sortCol: '',
+    sortAsc: true,
+    rows: window.__bikeRows,
+    get sortedRows() {
+        if (!this.sortCol) return this.rows;
+        const col = this.sortCol, asc = this.sortAsc;
+        return [...this.rows].sort((a, b) => {
+            let va = a[col] ?? '', vb = b[col] ?? '';
+            if (typeof va === 'string') va = va.toLowerCase();
+            if (typeof vb === 'string') vb = vb.toLowerCase();
+            return va < vb ? (asc ? -1 : 1) : va > vb ? (asc ? 1 : -1) : 0;
+        });
+    },
+    toggle(col) {
+        if (this.sortCol === col) this.sortAsc = !this.sortAsc;
+        else { this.sortCol = col; this.sortAsc = true; }
+    },
+    arrow(col) { return this.sortCol !== col ? '' : this.sortAsc ? ' ▲' : ' ▼'; }
+}" class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-200">
+                <tr>
+                    <th class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Fav</th>
+                    <th class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Img</th>
+                    <th @click="toggle('bike_type')" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Type<span x-text="arrow('bike_type')" class="text-blue-600"></span></th>
+                    <th @click="toggle('brand')" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Brand<span x-text="arrow('brand')" class="text-blue-600"></span></th>
+                    <th @click="toggle('model')" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Model<span x-text="arrow('model')" class="text-blue-600"></span></th>
+                    <th @click="toggle('frame_size')" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Size<span x-text="arrow('frame_size')" class="text-blue-600"></span></th>
+                    <th @click="toggle('condition')" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Cond.<span x-text="arrow('condition')" class="text-blue-600"></span></th>
+                    <th @click="toggle('bid')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Bid<span x-text="arrow('bid')" class="text-blue-600"></span></th>
+                    <th @click="toggle('market')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Market<span x-text="arrow('market')" class="text-blue-600"></span></th>
+                    <th @click="toggle('ai_value')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">AI Value<span x-text="arrow('ai_value')" class="text-blue-600"></span></th>
+                    <th @click="toggle('ai_max_bid')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">AI Max<span x-text="arrow('ai_max_bid')" class="text-blue-600"></span></th>
+                    <th @click="toggle('ai_risk_level')" class="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Risk<span x-text="arrow('ai_risk_level')" class="text-blue-600"></span></th>
+                    <th @click="toggle('img_score')" class="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Img<span x-text="arrow('img_score')" class="text-blue-600"></span></th>
+                    <th @click="toggle('rating')" class="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none">Rating<span x-text="arrow('rating')" class="text-blue-600"></span></th>
+                    <th class="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase">Link</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                <template x-for="row in sortedRows" :key="row.id">
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-3 py-2.5">
+                            <input type="checkbox" :checked="row.fav"
+                                   class="w-4 h-4 accent-amber-500 cursor-pointer"
+                                   :hx-post="'/api/bikes/favorite/' + row.id"
+                                   hx-swap="outerHTML" />
+                        </td>
+                        <td class="px-3 py-2.5">
+                            <template x-if="row.image_url">
+                                <img :src="row.image_url" class="w-12 h-9 object-cover rounded bg-gray-100" loading="lazy" onerror="this.style.display='none'" />
+                            </template>
+                        </td>
+                        <td class="px-3 py-2.5 text-gray-700" x-text="row.bike_type"></td>
+                        <td class="px-3 py-2.5 font-medium text-gray-900" x-text="row.brand"></td>
+                        <td class="px-3 py-2.5 text-gray-700" x-text="row.model"></td>
+                        <td class="px-3 py-2.5 text-gray-500 text-xs" x-text="row.frame_size"></td>
+                        <td class="px-3 py-2.5 text-gray-700" x-text="row.condition"></td>
+                        <td class="px-3 py-2.5 text-right font-medium text-gray-900" x-text="row.bid ? '€' + row.bid.toLocaleString('nl-NL', {maximumFractionDigits: 0}) : ''"></td>
+                        <td class="px-3 py-2.5 text-right text-gray-700" x-text="row.market ? '€' + row.market.toLocaleString('nl-NL', {maximumFractionDigits: 0}) : ''"></td>
+                        <td class="px-3 py-2.5 text-right text-gray-700" x-text="row.ai_value ? '€' + row.ai_value.toLocaleString('nl-NL', {maximumFractionDigits: 0}) : ''"></td>
+                        <td class="px-3 py-2.5 text-right text-gray-700" x-text="row.ai_max_bid ? '€' + row.ai_max_bid.toLocaleString('nl-NL', {maximumFractionDigits: 0}) : ''"></td>
+                        <td class="px-3 py-2.5 text-center">
+                            <template x-if="row.ai_risk_level">
+                                <span class="px-2 py-0.5 rounded-full text-xs font-medium"
+                                      :class="{
+                                          'text-green-700 bg-green-100': row.ai_risk_level === 'low',
+                                          'text-amber-700 bg-amber-100': row.ai_risk_level === 'medium',
+                                          'text-red-700 bg-red-100': row.ai_risk_level === 'high'
+                                      }"
+                                      x-text="row.ai_risk_level.charAt(0).toUpperCase() + row.ai_risk_level.slice(1)">
+                                </span>
+                            </template>
+                        </td>
+                        <td class="px-3 py-2.5 text-center text-gray-700" x-text="row.img_score ? row.img_score + '/10' : ''"></td>
+                        <td class="px-3 py-2.5 text-right">
+                            <template x-if="row.rating">
+                                <span class="font-medium text-gray-700" x-text="row.rating + '/10'"></span>
+                            </template>
+                        </td>
+                        <td class="px-3 py-2.5 text-center">
+                            <template x-if="row.url">
+                                <a :href="row.url" target="_blank" class="text-blue-600 hover:text-blue-800 text-xs">View</a>
+                            </template>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center text-gray-500 text-sm">
+    No bikes match the current filters.
+</div>
+{% endif %}

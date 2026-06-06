@@ -1,0 +1,110 @@
+<!-- Bikes auction selector + stats + action buttons + filters -->
+<div class="flex flex-col gap-4" x-data="{ selectedAuction: '{{ selected_auction }}' }">
+    <!-- Row: Auction selector + delete + action buttons -->
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 flex-wrap">
+        <div class="w-full sm:w-72">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Select Auction</label>
+            <select name="auction" id="bikes-auction-select"
+                    x-model="selectedAuction"
+                    hx-get="/bikes/tab/{{ active_tab or 'favorites' }}"
+                    hx-target="#tab-content"
+                    hx-include="#bikes-type-select, #bikes-brand-select"
+                    hx-swap="innerHTML"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                <option value="All" {{ 'selected' if selected_auction == 'All' }}>All</option>
+                {% for name in auction_names %}
+                <option value="{{ name }}" {{ 'selected' if selected_auction == name }}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button x-show="selectedAuction !== 'All'" x-cloak
+                @click="if (confirm('Delete all bikes from \'' + selectedAuction + '\'?')) {
+                    fetch('/api/bikes/auction/' + encodeURIComponent(selectedAuction), { method: 'DELETE' })
+                        .then(() => window.location.href = '/bikes');
+                }"
+                class="px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 cursor-pointer">
+            Delete Auction
+        </button>
+
+        <div class="sm:ml-auto flex flex-col sm:flex-row gap-2">
+            <form hx-post="/bikes/refresh-bids" hx-target="#action-result" hx-swap="innerHTML"
+                  hx-include="#bikes-auction-select">
+                <button type="submit" class="w-full sm:w-auto px-3 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700">
+                    Refresh Bids
+                </button>
+            </form>
+            <form hx-post="/bikes/lookup-prices" hx-target="#action-result" hx-swap="innerHTML"
+                  hx-include="#bikes-auction-select">
+                <button type="submit" class="w-full sm:w-auto px-3 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700">
+                    Marktplaats Prices
+                </button>
+            </form>
+            <form hx-post="/bikes/evaluate" hx-target="#action-result" hx-swap="innerHTML"
+                  hx-include="#bikes-auction-select">
+                <button type="submit" class="w-full sm:w-auto px-3 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700">
+                    AI Evaluate
+                </button>
+            </form>
+            <form hx-post="/bikes/analyze-images" hx-target="#action-result" hx-swap="innerHTML"
+                  hx-include="#bikes-auction-select">
+                <button type="submit" class="w-full sm:w-auto px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700">
+                    Analyze Images
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        <div class="bg-white rounded-lg border border-gray-200 p-3 lg:p-4">
+            <p class="text-xs font-medium text-gray-500">Total Bikes</p>
+            <p class="text-xl lg:text-2xl font-bold text-gray-900 mt-1">{{ stats.total_bikes }}</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-3 lg:p-4">
+            <p class="text-xs font-medium text-gray-500">With Bids</p>
+            <p class="text-xl lg:text-2xl font-bold text-gray-900 mt-1">{{ stats.total_bids }}</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-3 lg:p-4">
+            <p class="text-xs font-medium text-gray-500">Total Bid Value</p>
+            <p class="text-xl lg:text-2xl font-bold text-gray-900 mt-1">&euro;{{ "{:,.0f}".format(stats.total_bid_value) }}</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-3 lg:p-4">
+            <p class="text-xs font-medium text-gray-500">Total AI Value</p>
+            <p class="text-xl lg:text-2xl font-bold text-gray-900 mt-1">
+                {% if stats.total_ai_value %}&euro;{{ "{:,.0f}".format(stats.total_ai_value) }}{% else %}N/A{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex flex-col sm:flex-row gap-3">
+        <div class="w-full sm:w-48">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Filter by Type</label>
+            <select name="bike_type" id="bikes-type-select"
+                    hx-get="/bikes/tab/{{ active_tab or 'favorites' }}"
+                    hx-target="#tab-content"
+                    hx-include="#bikes-auction-select, #bikes-brand-select"
+                    hx-swap="innerHTML"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                <option value="All" {{ 'selected' if selected_type == 'All' }}>All</option>
+                {% for t in bike_types %}
+                <option value="{{ t }}" {{ 'selected' if selected_type == t }}>{{ t }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="w-full sm:w-48">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Filter by Brand</label>
+            <select name="brand" id="bikes-brand-select"
+                    hx-get="/bikes/tab/{{ active_tab or 'favorites' }}"
+                    hx-target="#tab-content"
+                    hx-include="#bikes-auction-select, #bikes-type-select"
+                    hx-swap="innerHTML"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                <option value="All" {{ 'selected' if selected_brand == 'All' }}>All</option>
+                {% for b in brands %}
+                <option value="{{ b }}" {{ 'selected' if selected_brand == b }}>{{ b }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+</div>

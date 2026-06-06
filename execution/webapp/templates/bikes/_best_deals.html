@@ -1,0 +1,12 @@
+<!-- Bikes Best Deals tab -->
+{% if deal_rows %}
+<div class="space-y-3">
+    {% for row in deal_rows %}
+    {% include "bikes/_bike_card.html" %}
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center text-gray-500 text-sm">
+    No deals found yet. Run AI Evaluate to score bikes.
+</div>
+{% endif %}

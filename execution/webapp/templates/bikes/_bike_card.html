@@ -1,0 +1,119 @@
+<!-- Single bike deal card -->
+{% set risk_colors = {'low': {'text': 'text-green-700', 'bg': 'bg-green-100', 'border': 'border-green-300', 'accent': 'bg-green-500'},
+                       'medium': {'text': 'text-amber-700', 'bg': 'bg-amber-50', 'border': 'border-amber-300', 'accent': 'bg-amber-500'},
+                       'high': {'text': 'text-red-700', 'bg': 'bg-red-50', 'border': 'border-red-300', 'accent': 'bg-red-500'}} %}
+{% set rc = risk_colors.get(row.ai_risk_level, {'text': 'text-gray-600', 'bg': 'bg-gray-50', 'border': 'border-gray-200', 'accent': 'bg-gray-400'}) %}
+
+<div class="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition">
+    <div class="flex items-start gap-3">
+        {% if row.image_url %}
+        <img src="{{ row.image_url }}" alt="{{ row.brand }} {{ row.model }}"
+             class="w-20 h-16 object-cover rounded flex-shrink-0 bg-gray-100" loading="lazy"
+             onerror="this.style.display='none'" />
+        {% endif %}
+        <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    {% if row.url %}
+                    <a href="{{ row.url }}" target="_blank" class="text-base font-semibold text-gray-900 hover:text-blue-600">
+                        {{ row.brand }} {{ row.model }}
+                    </a>
+                    {% else %}
+                    <span class="text-base font-semibold text-gray-900">{{ row.brand }} {{ row.model }}</span>
+                    {% endif %}
+                    <span class="text-xs text-gray-400 ml-2">{{ row.bike_type }}{% if row.frame_size %} · {{ row.frame_size }}{% endif %}{% if row.condition %} · {{ row.condition }}{% endif %}</span>
+                </div>
+                {% if row.ai_risk_level %}
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold text-white flex-shrink-0 {{ rc.accent }}">
+                    {{ row.ai_risk_level | upper }} RISK
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Bid -->
+    <div class="mt-3">
+        <p class="text-xs text-gray-500">Current Bid</p>
+        <p class="text-lg font-semibold text-gray-900">
+            {% if row.bid %}&euro;{{ "{:,.0f}".format(row.bid) }}{% else %}N/A{% endif %}
+        </p>
+    </div>
+
+    <!-- Marktplaats Market Price -->
+    {% if row.market %}
+    <div class="mt-3 pt-3 border-t border-gray-100">
+        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Marktplaats Market</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div>
+                <p class="text-xs text-gray-500">Market Price</p>
+                <p class="text-base font-semibold text-gray-900">&euro;{{ "{:,.0f}".format(row.market) }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">Savings</p>
+                {% if row.market_savings > 0 %}
+                <p class="text-base font-semibold text-green-600">
+                    &euro;{{ "{:,.0f}".format(row.market_savings) }}
+                    <span class="text-xs font-normal">({{ "{:.0f}".format(row.market_savings_pct) }}%)</span>
+                </p>
+                {% else %}
+                <p class="text-base font-semibold text-gray-400">N/A</p>
+                {% endif %}
+            </div>
+            {% if row.img_score %}
+            <div>
+                <p class="text-xs text-gray-500">Image Score</p>
+                <p class="text-base font-semibold text-gray-900">{{ row.img_score }}/10</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- AI Evaluation -->
+    {% if row.ai_explanation %}
+    <div class="mt-3 pt-3 border-t border-gray-100">
+        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">AI Evaluation</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div>
+                <p class="text-xs text-gray-500">AI Market Value</p>
+                <p class="text-base font-semibold text-gray-900">
+                    {% if row.ai_value %}&euro;{{ "{:,.0f}".format(row.ai_value) }}{% else %}N/A{% endif %}
+                </p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">AI Max Bid</p>
+                <p class="text-base font-semibold text-gray-900">
+                    {% if row.ai_max_bid %}&euro;{{ "{:,.0f}".format(row.ai_max_bid) }}{% else %}N/A{% endif %}
+                </p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500">AI Savings</p>
+                {% if row.ai_savings > 0 %}
+                <p class="text-base font-semibold text-green-600">
+                    &euro;{{ "{:,.0f}".format(row.ai_savings) }}
+                    <span class="text-xs font-normal">({{ "{:.0f}".format(row.ai_savings_pct) }}%)</span>
+                </p>
+                {% else %}
+                <p class="text-base font-semibold text-gray-400">N/A</p>
+                {% endif %}
+            </div>
+        </div>
+        {% set bullets = row.ai_explanation.replace('\n', '|').split('|') %}
+        {% set clean_bullets = [] %}
+        {% for b in bullets %}
+            {% set stripped = b.strip().lstrip('•-– ').strip() %}
+            {% if stripped %}{% if clean_bullets.append(stripped) %}{% endif %}{% endif %}
+        {% endfor %}
+        {% if clean_bullets %}
+        <div class="mt-2 {{ rc.bg }} border-l-4 {{ rc.border }} rounded-r-md px-3 py-2">
+            <ul class="text-xs {{ rc.text }} space-y-0.5">
+                {% for bullet in clean_bullets %}
+                <li>{{ bullet }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

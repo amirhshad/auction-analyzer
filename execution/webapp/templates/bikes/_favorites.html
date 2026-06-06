@@ -1,0 +1,12 @@
+<!-- Bikes Favorites tab -->
+{% if fav_rows %}
+<div class="space-y-3">
+    {% for row in fav_rows %}
+    {% include "bikes/_bike_card.html" %}
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center text-gray-500 text-sm">
+    No favorites yet. Mark bikes as favorite in the All Bikes tab.
+</div>
+{% endif %}
