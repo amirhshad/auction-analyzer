@@ -96,7 +96,7 @@ def analyze_single_image(client, image_url: str) -> Optional[dict]:
 def run(vehicle_id: Optional[int] = None, max_images: int = 5,
         bike_id: Optional[int] = None) -> Optional[AnalysisResult]:
     """Analyze images for a vehicle or bike."""
-    if not vehicle_id and not bike_id:
+    if vehicle_id is None and bike_id is None:
         print("Error: provide --vehicle-id or --bike-id", file=sys.stderr)
         return None
 
