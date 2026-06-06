@@ -198,41 +198,43 @@ def evaluate_bikes(
     client = OpenAI(api_key=OPENAI_API_KEY)
     evaluated = skipped = errors = 0
 
-    for idx, bike in enumerate(bikes):
+    try:
+        for idx, bike in enumerate(bikes):
+            if progress_callback:
+                label = f"{bike.brand or ''} {bike.model or ''}".strip() or "bike"
+                progress_callback(idx, len(bikes), f"Evaluating {label}...")
+
+            new_hash = _compute_eval_hash(bike)
+            if not force and bike.ai_eval_hash == new_hash and bike.ai_evaluated_at:
+                skipped += 1
+                continue
+
+            market_prices = repo.get_bike_market_prices(bike.brand or "", bike.model)
+            prompt = _format_prompt(bike, market_prices)
+            result = _call_gpt(client, prompt)
+
+            repo.update_bike_ai_eval(
+                bike.id,
+                ai_estimated_value=result.get("estimated_market_value"),
+                ai_recommended_max_bid=result.get("recommended_max_bid"),
+                ai_risk_level=result["risk_level"],
+                ai_explanation=result["explanation"],
+                ai_evaluated_at=datetime.now(timezone.utc),
+                ai_eval_hash=new_hash,
+            )
+
+            if result.get("estimated_market_value") is None:
+                errors += 1
+            else:
+                evaluated += 1
+                _log(f"  [{idx+1}/{len(bikes)}] {bike.brand} {bike.model} → "
+                     f"€{result['estimated_market_value']:,.0f} | Risk: {result['risk_level']}")
+
         if progress_callback:
-            label = f"{bike.brand or ''} {bike.model or ''}".strip() or "bike"
-            progress_callback(idx, len(bikes), f"Evaluating {label}...")
+            progress_callback(len(bikes), len(bikes), "Done!")
+    finally:
+        repo.close()
 
-        new_hash = _compute_eval_hash(bike)
-        if not force and bike.ai_eval_hash == new_hash and bike.ai_evaluated_at:
-            skipped += 1
-            continue
-
-        market_prices = repo.get_bike_market_prices(bike.brand or "", bike.model)
-        prompt = _format_prompt(bike, market_prices)
-        result = _call_gpt(client, prompt)
-
-        repo.update_bike_ai_eval(
-            bike.id,
-            ai_estimated_value=result.get("estimated_market_value"),
-            ai_recommended_max_bid=result.get("recommended_max_bid"),
-            ai_risk_level=result["risk_level"],
-            ai_explanation=result["explanation"],
-            ai_evaluated_at=datetime.now(timezone.utc),
-            ai_eval_hash=new_hash,
-        )
-
-        if result.get("estimated_market_value") is None:
-            errors += 1
-        else:
-            evaluated += 1
-            _log(f"  [{idx+1}/{len(bikes)}] {bike.brand} {bike.model} → "
-                 f"€{result['estimated_market_value']:,.0f} | Risk: {result['risk_level']}")
-
-    if progress_callback:
-        progress_callback(len(bikes), len(bikes), "Done!")
-
-    repo.close()
     return {"evaluated": evaluated, "skipped": skipped, "errors": errors}
 
 

@@ -271,4 +271,4 @@ def test_format_prompt_includes_market_prices():
     from execution.db_models import BikeMarketPrice
     mp = BikeMarketPrice(brand="Trek", model="Domane", asking_price=1200.0)
     prompt = _format_prompt(b, market_prices=[mp])
-    assert "1200" in prompt or "market" in prompt.lower()
+    assert "1,200" in prompt
