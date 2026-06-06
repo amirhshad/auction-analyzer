@@ -225,3 +225,50 @@ def test_extract_prices_from_html_finds_prices():
     prices = _extract_prices_from_html(html)
     assert 1999.0 in prices
     assert 850.0 in prices
+
+
+from execution.bike_evaluator import _compute_eval_hash, _format_prompt
+from execution.db_models import Bike
+from datetime import datetime, timezone
+
+
+def test_eval_hash_is_16_chars():
+    b = Bike(brand="Trek", model="Domane", current_bid=500.0, bid_count=5)
+    h = _compute_eval_hash(b)
+    assert len(h) == 16
+
+
+def test_eval_hash_changes_with_bid():
+    b1 = Bike(brand="Trek", model="Domane", current_bid=500.0)
+    b2 = Bike(brand="Trek", model="Domane", current_bid=600.0)
+    assert _compute_eval_hash(b1) != _compute_eval_hash(b2)
+
+
+def test_eval_hash_stable():
+    b = Bike(brand="Trek", model="Domane", current_bid=500.0, bid_count=5)
+    assert _compute_eval_hash(b) == _compute_eval_hash(b)
+
+
+def test_format_prompt_includes_brand_model():
+    b = Bike(
+        bike_type="Racefiets",
+        brand="Cannondale",
+        model="SystemSix",
+        frame_size="54 cm",
+        condition="Gebruikt",
+        components="Shimano Ultegra Di2",
+        current_bid=1500.0,
+        bid_count=40,
+    )
+    prompt = _format_prompt(b, market_prices=[])
+    assert "Cannondale" in prompt
+    assert "SystemSix" in prompt
+    assert "1500" in prompt
+
+
+def test_format_prompt_includes_market_prices():
+    b = Bike(brand="Trek", model="Domane", current_bid=800.0)
+    from execution.db_models import BikeMarketPrice
+    mp = BikeMarketPrice(brand="Trek", model="Domane", asking_price=1200.0)
+    prompt = _format_prompt(b, market_prices=[mp])
+    assert "1200" in prompt or "market" in prompt.lower()
